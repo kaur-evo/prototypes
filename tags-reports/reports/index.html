@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<!-- ╔══════════════════════════════════════════════════════════════════════════╗ -->
+<!-- ║  index.html — View                                                       ║ -->
+<!-- ║  HTML structure and CSS styles only.                                     ║ -->
+<!-- ║  All data → data.js   |   All logic + rendering → logic.js              ║ -->
+<!-- ╚══════════════════════════════════════════════════════════════════════════╝ -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reports – Tags filter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Open+Sans:wght@400;600&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: #eeeeee; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── Header ── */
+    #app-header {
+      height: 48px; background: #222; display: flex; align-items: center;
+      padding: 0 16px; gap: 12px; flex-shrink: 0; position: sticky; top: 0; z-index: 200;
+    }
+    .header-hamburger { display: flex; flex-direction: column; gap: 4px; cursor: pointer; padding: 4px; }
+    .header-hamburger span { display: block; width: 18px; height: 2px; background: white; border-radius: 1px; }
+    #app-header .app-name { color: white; font-size: 15px; font-weight: 500; }
+
+    /* ── Layout below header ── */
+    #app-body { display: flex; flex: 1; min-height: 0; }
+
+    /* ── Sidemenu ── */
+    #sidemenu {
+      width: 40px; background: #222; display: flex; flex-direction: column;
+      align-items: center; padding: 8px 0; flex-shrink: 0;
+      position: sticky; top: 48px; height: calc(100vh - 48px); overflow: hidden;
+    }
+    .side-icon {
+      width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; border-radius: 4px; color: rgba(255,255,255,0.55); font-size: 16px;
+      flex-shrink: 0;
+    }
+    .side-icon:hover { background: rgba(255,255,255,0.08); color: white; }
+    .side-icon.active { color: #2ecc71; }
+    .side-spacer { flex: 1; }
+    /* simple svg-like icons via unicode/css shapes */
+    .ico-menu::before    { content: '☰'; }
+    .ico-target::before  { content: '◎'; }
+    .ico-grid::before    { content: '⊞'; }
+    .ico-chart::before   { content: '▦'; font-size: 18px; }
+    .ico-gear::before    { content: '⚙'; font-size: 18px; }
+    .ico-dash::before    { content: '⊟'; }
+    .ico-help::before    { content: '?'; font-size: 14px; font-weight: 700; }
+    .ico-flag::before    { content: '⚑'; }
+    .ico-power::before   { content: '⏻'; font-size: 18px; }
+
+    /* ── Main content ── */
+    /* Bottom room so the corner "Prototype settings" button never covers the table pager. */
+    #main-content { flex: 1; display: flex; flex-direction: column; min-width: 0; padding-bottom: 40px; }
+
+    /* ── Filter chip (filter bar & chart controls) ── */
+    /* Chart controls and the date range use Evocon's chip: grey pill, icon,
+       label, caret — green once the control carries a value. */
+    .filter-chip {
+      font-family: 'Open Sans', sans-serif; font-size: 14px; height: 32px;
+      padding: 0 8px 0 12px; border-radius: 24px; display: inline-flex; align-items: center;
+      gap: 4px; cursor: pointer; background: #eee; border: 1px solid transparent;
+      color: #212121; white-space: nowrap; line-height: 20px;
+    }
+    .filter-chip:hover { background: #e0e0e0; }
+    .filter-chip.active { background: rgba(46,204,113,0.12); border-color: #2ecc71; }
+    .filter-chip.active:hover { background: rgba(46,204,113,0.18); }
+    .chip-icn { flex-shrink: 0; }
+    /* The label is its own node so redrawing the value leaves icon + caret alone. */
+    .chip-label { padding: 0 2px; }
+    /* Chart settings cog, at the end of the control row. */
+    .chart-cog {
+      width: 32px; height: 32px; border: none; background: none; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; border-radius: 50%;
+    }
+    .chart-cog:hover { background: rgba(0,0,0,0.06); }
+
+    /* ── Date picker shadow ── */
+    .dp-shadow {
+      box-shadow: 0px 3px 1px -2px rgba(0,0,0,0.12),
+                  0px 2px 2px 0px rgba(0,0,0,0.12),
+                  0px 1px 5px 0px rgba(0,0,0,0.25);
+    }
+
+    /* ── Preset chips ── */
+    .chip {
+      font-family: 'Open Sans', sans-serif; font-size: 14px; line-height: 20px;
+      height: 32px; padding: 0 12px; border-radius: 24px;
+      display: inline-flex; align-items: center; cursor: pointer;
+      white-space: nowrap; background: #eeeeee; color: #212121;
+      border: 1px solid transparent; transition: background 0.12s;
+    }
+    .chip:hover { background: #e4e4e4; }
+    .chip.selected { background: rgba(46,204,113,0.12); border-color: #2ecc71; }
+
+    /* ── Tag pills in the table's Tags column (Figma "Chip", 26 px). A click
+       adds the tag to the Tags filter; a tag already in it shows green. ── */
+    .dt-tag-pill {
+      font-family: 'Open Sans', sans-serif; font-size: 12px; line-height: 16px;
+      height: 26px; padding: 0 12px; border-radius: 13px;
+      display: inline-flex; align-items: center; vertical-align: middle; cursor: pointer;
+      white-space: nowrap; background: #eeeeee; color: #212121; border: 1px solid transparent;
+    }
+    .dt-tag-pill:hover { background: #e0e0e0; }
+    .dt-tag-pills { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 0; }
+    .dt-tag-pill.is-on { background: rgba(46,204,113,0.12); border-color: #2ecc71; }
+
+    /* ── Footer buttons ── */
+    .btn-close {
+      font-family: 'Open Sans', sans-serif; font-weight: 600; font-size: 12px;
+      line-height: 16px; letter-spacing: 0.04em; text-transform: uppercase; color: #212121;
+      background: transparent; border: none; cursor: pointer;
+      height: 28px; padding: 0 12px 0 12px; border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .btn-close:hover { background: rgba(0,0,0,0.04); }
+    .btn-apply {
+      font-family: 'Open Sans', sans-serif; font-weight: 600; font-size: 12px;
+      line-height: 16px; letter-spacing: 0.04em; text-transform: uppercase; color: white;
+      background: #2ecc71; border: none; cursor: pointer;
+      height: 28px; padding: 0 12px; border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .btn-apply:hover { background: #27ae60; }
+
+    /* ── Calendar grid ── */
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 32px);
+      width: 224px;
+    }
+    .cal-header-cell {
+      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      font-family: 'Open Sans', sans-serif; font-size: 12px; line-height: 16px;
+      color: #9e9e9e;
+    }
+    .cal-cell-wrap {
+      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+    }
+    /* band backgrounds on wrapper */
+    .band-full   { background: rgba(46,204,113,0.15); }
+    .band-left   { background: rgba(46,204,113,0.15); border-radius: 16px 0 0 16px; }
+    .band-right  { background: rgba(46,204,113,0.15); border-radius: 0 16px 16px 0; }
+    .band-single { background: rgba(46,204,113,0.15); border-radius: 16px; }
+
+    .cal-day {
+      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      border-radius: 50%; font-family: 'Open Sans', sans-serif;
+      font-size: 12px; line-height: 16px; cursor: pointer; color: #212121;
+      flex-shrink: 0; position: relative; z-index: 1;
+    }
+    .cal-day:hover { background: rgba(0,0,0,0.06); }
+    .cal-day.out-of-month { color: rgba(0,0,0,0.25); }
+    .cal-day.disabled { color: rgba(0,0,0,0.25); cursor: default; pointer-events: none; }
+    .cal-day.range-dot {
+      background: #2ecc71 !important; color: white !important;
+    }
+    .cal-day.range-dot:hover { background: #27ae60 !important; }
+
+    /* ── X-axis dropdown ── */
+    .xaxis-dropdown {
+      position:absolute; top:36px; left:0; background:white; border-radius:4px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.18); z-index:50; min-width:190px;
+      padding:4px 0; display:none;
+    }
+    .xaxis-dropdown.open { display:block; }
+    .xaxis-opt {
+      padding:8px 16px; font-family:'Open Sans',sans-serif; font-size:13px;
+      color:#212121; cursor:pointer; white-space:nowrap;
+    }
+    .xaxis-opt:hover { background:#f5f5f5; }
+    .xaxis-opt.selected { color:#2ecc71; font-weight:600; }
+    .xaxis-sep { height:1px; background:#eeeeee; margin:4px 0; }
+
+    /* ── Multi-select filter dropdown (Operators / Group / Role) ──
+       Matches Figma 32059:7483 — green check-circle on selected rows,
+       ENTERPRISE pill on rows the licence tier doesn't include. */
+    /* ── Filter: action menu (dimension list) ── */
+    .filter-cta {
+      display:flex; align-items:center; gap:4px;
+      height:32px; padding:0 12px;
+      border:none; cursor:pointer; border-radius:4px;  /* .btn radius (--r-4) */
+      background:rgba(46,204,113,0.12);          /* .btn--secondary fill */
+      font-family:'Open Sans',sans-serif; font-size:12px; font-weight:600; letter-spacing:0.4px;
+      color:#2ecc71; text-transform:uppercase; white-space:nowrap;
+    }
+    .filter-cta:hover { background:rgba(46,204,113,0.2); }
+    .action-menu {
+      position:absolute; top:38px; left:0; background:white; border-radius:4px;
+      box-shadow:0px 1px 5px rgba(0,0,0,0.25),0px 2px 2px rgba(0,0,0,0.12),0px 3px 1px -2px rgba(0,0,0,0.12);
+      z-index:60; min-width:220px; padding:8px 0; display:none;
+    }
+    .action-menu.open { display:block; }
+    .action-menu-row {
+      display:flex; align-items:center; gap:16px; min-height:40px; padding:4px 32px 4px 16px;
+      font-family:'Open Sans',sans-serif; font-size:14px; color:#212121; cursor:pointer; white-space:nowrap;
+    }
+    .action-menu-row:hover { background:#f5f5f5; }
+    .action-menu-row.is-added { color:#9e9e9e; cursor:default; }
+    /* Dimensions the live menu offers that this prototype does not wire up. */
+    .action-menu-row.is-inert { cursor:default; }
+    .action-menu-row.is-inert:hover { background:transparent; }
+    .action-menu-row.is-added:hover { background:transparent; }
+    .action-menu-row .v-icon, .action-menu-row img { flex-shrink:0; }
+
+    /* ── Page header (live): title left, more / share / SAVE right ── */
+    .page-head { display:flex; align-items:center; justify-content:space-between; padding:20px 24px 12px; }
+    #page-title { font-family:'Open Sans',sans-serif; font-size:34px; font-weight:400; color:#212121; line-height:44px; }
+    .page-actions { display:flex; align-items:center; gap:8px; }
+    .page-icon-btn { width:40px; height:40px; border:none; background:none; border-radius:50%; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+    .page-icon-btn:hover { background:rgba(0,0,0,0.06); }
+    .page-save { display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 16px 0 12px; border:none; border-radius:4px; cursor:pointer;
+      background:rgba(46,204,113,0.12); color:#2ecc71; font-family:'Open Sans',sans-serif; font-size:14px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; }
+
+    /* ── Report cards: 16px apart, controls row without a rule under it ── */
+    /* No overflow:hidden — the X-axis / Split by dropdowns hang out of it. */
+    .report-card { margin-top:16px; background:white; border-radius:4px;
+      box-shadow:0 1px 3px rgba(0,0,0,0.12),0 1px 2px rgba(0,0,0,0.08); }
+    .report-card > div:last-child { border-radius:0 0 4px 4px; }
+    .chart-head { height:64px; background:white; display:flex; align-items:center; padding:8px 16px 0 24px; border-radius:4px 4px 0 0; }
+    .chart-back { display:inline-flex; align-items:center; gap:12px; border:none; background:none; cursor:pointer; padding:0;
+      font-family:'Open Sans',sans-serif; font-size:14px; font-weight:600; color:#212121; text-transform:uppercase; letter-spacing:0.4px; }
+    .chart-back-icn, .tbl-info, .tbl-cols-icn, .tbl-time-icn, .tbl-caret, .tbl-dl-icn { display:inline-flex; }
+
+    /* Chart footer pager */
+    .chart-pg-label { font-family:'Open Sans',sans-serif; font-size:12px; color:#212121; margin-right:8px; }
+    .chart-pg-size { display:inline-flex; align-items:center; gap:4px; font-family:'Open Sans',sans-serif; font-size:16px; color:#212121;
+      border-bottom:1px solid #9e9e9e; padding:0 0 2px 0; margin-right:32px; }
+    .chart-pg-range { font-family:'Open Sans',sans-serif; font-size:12px; color:#212121; margin-right:24px; }
+    .chart-pg { border:none; background:none; cursor:pointer; padding:0 8px; display:inline-flex; }
+    .chart-pg:disabled { cursor:default; }
+
+    /* Table card header */
+    .tbl-chip { display:flex; align-items:center; gap:4px; height:32px; padding:0 8px 0 12px; border-radius:24px; background:#eee;
+      border:1px solid transparent; cursor:pointer; white-space:nowrap; font-family:'Open Sans',sans-serif; font-size:14px; color:#212121; line-height:20px; }
+    .tbl-chip.is-on { background:rgba(46,204,113,0.12); border-color:#2ecc71; }
+    .tbl-export { display:inline-flex; align-items:center; gap:8px; height:32px; padding:0 12px 0 8px; border:none; border-radius:4px; cursor:pointer;
+      background:#eee; font-family:'Open Sans',sans-serif; font-size:14px; font-weight:600; color:#212121; text-transform:uppercase; letter-spacing:0.4px; }
+    .tbl-export:hover { background:#e0e0e0; }
+
+    /* ── Filter: active chip ── */
+    .active-chip {
+      display:flex; align-items:center; gap:4px; height:32px; padding:0 8px 0 12px;
+      border-radius:24px; background:#eee; border:1px solid transparent; cursor:pointer;
+      font-family:'Open Sans',sans-serif; font-size:14px; color:#212121; white-space:nowrap;
+    }
+    .active-chip:hover { background:#e0e0e0; }
+    /* Standing chips are decoration only — no hover affordance, no pointer. */
+    .active-chip.is-static { cursor:default; }
+    .active-chip.is-static:hover { background:#eee; }
+    .active-chip.has-sel { background:rgba(46,204,113,0.12); border-color:#2ecc71; }
+    .active-chip .chip-x { display:inline-flex; padding:2px; border-radius:50%; }
+    .active-chip .chip-x:hover { background:rgba(0,0,0,0.1); }
+
+    /* ── Filter: selection list (search + checkboxes + footer) ── */
+    .selection-list {
+      position:absolute; top:38px; background:white; border-radius:4px;
+      box-shadow:0px 1px 5px rgba(0,0,0,0.25),0px 2px 2px rgba(0,0,0,0.12),0px 3px 1px -2px rgba(0,0,0,0.12);
+      z-index:60; width:320px; display:none; flex-direction:column; max-height:420px;
+    }
+    .selection-list.open { display:flex; }
+    .sl-search { padding:12px 12px 0; flex-shrink:0; }
+    .sl-search-inner {
+      display:flex; align-items:center; gap:6px; background:#f0f0f0; border-bottom:1px solid #2ecc71;
+      border-radius:4px 4px 0 0; padding:8px 16px;
+    }
+    .sl-search-inner input {
+      flex:1; border:none; background:none; outline:none; font-family:'Open Sans',sans-serif;
+      font-size:16px; color:#212121; min-width:0;
+    }
+    .sl-rows { overflow-y:auto; padding:8px 0; flex:1; }
+    .sl-row {
+      display:flex; align-items:center; gap:16px; min-height:40px; padding:4px 16px;
+      font-family:'Open Sans',sans-serif; font-size:14px; color:#212121; cursor:pointer; white-space:nowrap;
+    }
+    .sl-row:hover { background:#f5f5f5; }
+    .sl-check {
+      width:24px; height:24px; border:2px solid #9e9e9e; border-radius:3px; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .sl-row.is-checked .sl-check { background:#2ecc71; border-color:#2ecc71; }
+    .sl-check.is-on { background:#2ecc71; border-color:#2ecc71; }   /* group header (full/partial) */
+    .sl-row-member { padding-left:32px; }                          /* indent operators under their group */
+    .sl-divider { height:1px; background:rgba(33,33,33,0.12); margin:0 12px; }
+    /* Group rows are collapsible: the label takes the free space so the
+       chevron sits flush right, and it flips when the group is open. */
+    .sl-row-group .sl-label { flex:1; }
+    .sl-chevron { display:inline-flex; flex-shrink:0; transition:transform .12s ease; }
+    .sl-row-group.is-open .sl-chevron { transform:rotate(180deg); }
+    .sl-footer {
+      display:flex; align-items:center; justify-content:space-between; padding:8px 16px 16px;
+      flex-shrink:0; border-top:1px solid #f0f0f0;
+    }
+    .sl-trash { display:inline-flex; padding:6px; border-radius:24px; cursor:pointer; }
+    .sl-trash:hover { background:rgba(0,0,0,0.06); }
+    .sl-footer-right { display:flex; align-items:center; gap:8px; }
+    .sl-btn {
+      height:28px; padding:0 12px; border:none; border-radius:4px; cursor:pointer;
+      font-family:'Open Sans',sans-serif; font-size:12px; font-weight:600; text-transform:uppercase;
+    }
+    .sl-btn-cancel { background:none; color:#212121; }
+    .sl-btn-apply  { background:#2ecc71; color:white; }
+
+    /* ── Selection list: the Tags filter ──
+       A selected tag that was deleted (or lost its types) stays listed so it
+       can be unticked; no extra text, only its look. */
+    .sl-row.is-deleted > span:last-child { color:#757575; font-style:italic; }
+    .sl-row.is-unavailable > span:last-child { color:#e65100; }
+    /* Products: the SKU after the name, the only secondary text in the lists. */
+    .sl-row .sl-sec { margin-left:auto; padding-left:12px; color:#9e9e9e; font-size:12px; }
+    .sl-row.is-disabled { cursor:default; opacity:0.6; }
+    .sl-row.is-disabled:hover { background:transparent; }
+    /* Table chip menus (Columns, Time format). */
+    .chip-menu { position:absolute; top:36px; right:0; background:white; border-radius:4px; z-index:70; min-width:200px; padding:8px 0; display:none;
+      box-shadow:0px 1px 5px rgba(0,0,0,0.25),0px 2px 2px rgba(0,0,0,0.12),0px 3px 1px -2px rgba(0,0,0,0.12); }
+    .chip-menu.open { display:block; }
+    .chip-menu-cols { max-height:420px; overflow-y:auto; min-width:260px; }
+    .chip-menu .sl-row { min-height:36px; }
+    /* Sortable headers. */
+    #dt-head th { cursor:pointer; user-select:none; }
+    #dt-head th:hover { background:#fafafa; }
+    .dt-sort { flex-shrink:0; }
+    .sl-empty { padding:8px 16px; font-family:'Open Sans',sans-serif; font-size:14px; color:#9e9e9e; }
+    /* Empty Downtime result. */
+    .chart-empty { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+      font-family:'Open Sans',sans-serif; }
+    .chart-empty-title { font-size:16px; font-weight:600; color:#616161; }
+    .chart-empty-hint { font-size:14px; color:#757575; }
+    /* Chips shrink with an ellipsis so + FILTER and RESET stay in the bar. */
+    #filter-bar .active-chip { flex-shrink:0; }
+    .active-chip .chip-text { margin:0 2px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .active-chip .chip-text { max-width:220px; }
+    .active-chip .chip-warn { display:inline-flex; margin-left:-2px; }
+    #filter-cta, #filter-reset { flex-shrink:0; }
+    /* On a narrow screen the standing chips give way first (label ellipsis). */
+    .active-chip.is-static { min-width:56px; flex-shrink:2; overflow:hidden; }
+    .active-chip.is-static > span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .active-chip > svg { flex-shrink:0; }
+    #date-btn { flex-shrink:0; }
+
+    .filter-dropdown {
+      position:absolute; top:36px; left:0; background:white; border-radius:4px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.18); z-index:50; min-width:240px;
+      padding:8px 0; display:none;
+    }
+    .filter-dropdown.open { display:block; }
+    .filter-opt {
+      display:flex; align-items:center; gap:12px; padding:10px 16px;
+      font-family:'Open Sans',sans-serif; font-size:14px; color:#212121;
+      cursor:pointer; white-space:nowrap; min-height:40px;
+    }
+    .filter-opt:hover { background:#f5f5f5; }
+    .filter-opt.selected { background:rgba(46,204,113,0.08); }
+    .filter-opt.disabled { color:#9e9e9e; cursor:not-allowed; }
+    .filter-opt.disabled:hover { background:transparent; }
+    .filter-opt-check {
+      width:24px; height:24px; border:2px solid #cccccc; border-radius:3px;
+      display:flex; align-items:center; justify-content:center; flex-shrink:0;
+      background:white;
+    }
+    .filter-opt.selected .filter-opt-check {
+      background:#2ecc71; border-color:#2ecc71;
+    }
+    .filter-opt.selected .filter-opt-check::after {
+      content:''; width:10px; height:6px; border-left:2px solid white;
+      border-bottom:2px solid white; transform:rotate(-45deg) translate(1px,-1px);
+    }
+    .filter-opt-label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+    .filter-opt-pill {
+      display:inline-flex; align-items:center; height:18px; padding:0 8px;
+      border-radius:9px; background:#2ecc71; color:white; font-size:11px;
+      font-weight:600; letter-spacing:0.3px; text-transform:uppercase;
+      flex-shrink:0;
+    }
+    /* Two-level Operators picker: group header + indented members. */
+    .filter-opt-group { background:transparent; }
+    .filter-opt-group:hover { background:#f5f5f5; }
+    .filter-opt-member { padding-left:48px; min-height:36px; }
+    .filter-opt-caret { font-size:12px; color:#707070; display:inline-flex; }
+    /* Group-level checkbox states. "is-full" reuses the same green tick as
+       individual ops; "is-partial" shows a dash in a green-filled box. */
+    .filter-opt-check.is-full {
+      background:#2ecc71; border-color:#2ecc71;
+    }
+    .filter-opt-check.is-full::after {
+      content:''; width:10px; height:6px; border-left:2px solid white;
+      border-bottom:2px solid white; transform:rotate(-45deg) translate(1px,-1px);
+    }
+    .filter-opt-check.is-partial {
+      background:#2ecc71; border-color:#2ecc71;
+    }
+    .filter-opt-check.is-partial::after {
+      content:''; width:10px; height:2px; background:white;
+    }
+
+    /* ── Data Table ──
+       The OEE / Quantities cards reuse this chrome via the class variants
+       (`.dt-card` / `.dt-scroll`); the scroll container is what makes the
+       sticky first column + horizontal scroll work instead of stretching
+       the page. */
+    #dt-card, .dt-card { background:white; border-radius:4px; box-shadow:0 1px 3px rgba(0,0,0,0.12),0 1px 2px rgba(0,0,0,0.08); }
+    #dt-scroll, .dt-scroll { overflow-x:auto; }
+    #dt-table { border-collapse:collapse; table-layout:auto; }
+    #oee-table, #qty-table { border-collapse:collapse; table-layout:auto; }
+    #dt-table th, #dt-table td,
+    #oee-table th, #oee-table td,
+    #qty-table th, #qty-table td {
+      border-top:1px solid #e0e0e0; padding:0 12px;
+    }
+    #dt-table thead th,
+    #oee-table thead th,
+    #qty-table thead th { border-top:none; border-bottom:1px solid #e0e0e0; }
+    /* Fixed first column */
+    .dt-fixed { position:sticky; left:0; z-index:2; border-right:1px solid #e0e0e0 !important; overflow:visible; }
+    .dt-th-inner { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .dt-col-resize { position:absolute; right:0; top:0; bottom:0; width:4px; cursor:col-resize; z-index:1; }
+    .dt-col-resize:hover, .dt-col-resize.active { background:rgba(0,0,0,0.12); }
+    thead .dt-fixed { background:white; z-index:3; }
+    .dt-row-odd  .dt-fixed { background:#f5f5f5; }
+    .dt-row-even .dt-fixed { background:white; }
+    .dt-row-total .dt-fixed { background:white; }
+    .dt-row-odd  { background:#f5f5f5; }
+    .dt-row-even { background:white; }
+    .dt-row-total { background:white; font-weight:600; border-top:2px solid #e0e0e0 !important; }
+    .dt-row-total td { border-top:2px solid #e0e0e0 !important; }
+    .dt-mono { font-family:'Roboto Mono',monospace; }
+    .dt-th-inner { display:flex; align-items:center; gap:4px; }
+    .dt-th-inner.right { justify-content:flex-end; }
+    .dt-page-btn {
+      width:28px; height:28px; border:none; background:none; cursor:pointer;
+      border-radius:4px; display:flex; align-items:center; justify-content:center;
+      font-size:18px; color:#424242; line-height:1;
+    }
+    .dt-page-btn:hover { background:#f5f5f5; }
+    .dt-page-btn:disabled { opacity:0.25; cursor:default; }
+    .dt-page-btn:disabled:hover { background:none; }
+
+    /* ── Report nav (second sidemenu) ── */
+    #report-nav {
+      width: 64px; background: white; display: flex; flex-direction: column;
+      align-items: flex-start; flex-shrink: 0;
+      position: sticky; top: 48px; height: calc(100vh - 48px); overflow: hidden;
+      border-right: 1px solid #e0e0e0;
+    }
+    .rnav-menu-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px; border-radius: 24px; border: none;
+      background: none; cursor: pointer; margin: 4px 12px 0;
+      color: #616161; flex-shrink: 0;
+    }
+    .rnav-menu-btn:hover { background: rgba(0,0,0,0.06); }
+    .rnav-divider { height: 1px; background: #9e9e9e; margin: 8px; width: calc(100% - 16px); flex-shrink: 0; }
+    .rnav-item {
+      display: flex; align-items: center; height: 40px; width: 64px;
+      padding: 4px 16px; box-sizing: border-box; cursor: pointer;
+      border: none; background: none; border-radius: 4px; flex-shrink: 0;
+    }
+    .rnav-item:hover { background: rgba(0,0,0,0.04); }
+    .rnav-item.active { background: rgba(46,204,113,0.12); }
+    .rnav-item svg { flex-shrink: 0; }
+    .rnav-item svg { color: #616161; }
+    .rnav-item.active svg { color: #2ecc71; }
+  </style>
+</head>
+<body>
+
+<!-- ── App Header ──────────────────────────────────────────────── -->
+<div id="app-header">
+  <div class="header-hamburger"><span></span><span></span><span></span></div>
+  <span class="app-name">Reports</span>
+</div>
+
+<!-- ── App Body (sidemenu + content) ──────────────────────────── -->
+<div id="app-body">
+
+  <!-- Sidemenu. The Settings icon opens the Settings surface of this prototype
+       (stop reasons, where tags are set); the other icons are decorative. -->
+  <div id="sidemenu">
+    <div class="side-icon ico-menu"></div>
+    <div class="side-icon ico-target" title="Shift View"></div>
+    <div class="side-icon ico-grid"></div>
+    <div class="side-icon ico-chart active" title="Reports"></div>
+    <div class="side-spacer"></div>
+    <a href="../settings/settings.html#stop-reasons" title="Settings" style="text-decoration:none;color:inherit;"><div class="side-icon ico-gear"></div></a>
+    <div class="side-icon ico-dash"></div>
+    <div class="side-icon ico-help"></div>
+    <div class="side-icon ico-flag"></div>
+    <div class="side-icon ico-power"></div>
+    <div class="side-icon" style="width:28px;height:28px;border-radius:50%;background:#e8c840;margin:4px 0;font-size:11px;color:#333;font-weight:600;display:flex;align-items:center;justify-content:center;">A</div>
+  </div>
+
+  <!-- Report nav (2nd level sidebar) -->
+  <div id="report-nav">
+    <!-- Menu-open / collapse button -->
+    <button class="rnav-menu-btn" title="Collapse">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3 8.39L4.41 7L9.42 12L4.41 17L3 15.61L6.56 12L3 8.39ZM21 18H8V16L21 16V18ZM21 11V13H11V11H21ZM21 6V8L8 8V6L21 6Z"/></svg>
+    </button>
+    <div class="rnav-divider"></div>
+    <!-- Downtime (active) — help-circle-outline -->
+    <button class="rnav-item active" id="rnav-downtime" onclick="switchReport('downtime')" title="Downtime">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M2 12C2 6.48 6.48 2 12 2C17.52 2 22 6.48 22 12C22 17.52 17.52 22 12 22C6.48 22 2 17.52 2 12ZM13 16V18H11V16H13ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20ZM8 10C8 7.79 9.79 6 12 6C14.21 6 16 7.79 16 10C16 11.2829 15.21 11.9733 14.4408 12.6455C13.711 13.2833 13 13.9046 13 15H11C11 13.1787 11.9421 12.4566 12.7704 11.8217C13.4202 11.3236 14 10.8792 14 10C14 8.9 13.1 8 12 8C10.9 8 10 8.9 10 10H8Z"/></svg>
+    </button>
+    <!-- Speed loss — speedometer-slow -->
+    <button class="rnav-item" title="Speed loss">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 16C13.66 16 15 14.66 15 13C15 11.88 14.39 10.9 13.5 10.39L3.79 4.77L9.32 14.35C9.82 15.33 10.83 16 12 16ZM12 3C10.19 3 8.5 3.5 7.03 4.32L9.13 5.53C10 5.19 11 5 12 5C16.42 5 20 8.58 20 13C20 15.21 19.11 17.21 17.66 18.65H17.65C17.26 19.04 17.26 19.67 17.65 20.06C18.04 20.45 18.68 20.45 19.07 20.07C20.88 18.26 22 15.76 22 13C22 7.5 17.5 3 12 3ZM2 13C2 15.76 3.12 18.26 4.93 20.07C5.32 20.45 5.95 20.45 6.34 20.06C6.73 19.67 6.73 19.04 6.34 18.65C4.89 17.2 4 15.21 4 13C4 12 4.19 11 4.54 10.1L3.33 8C2.5 9.5 2 11.18 2 13Z"/></svg>
+    </button>
+    <!-- Scrap — minus-circle-outline -->
+    <button class="rnav-item" title="Scrap">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM4 12C4 16.41 7.59 20 12 20C16.41 20 20 16.41 20 12C20 7.59 16.41 4 12 4C7.59 4 4 7.59 4 12ZM7 11V13H17V11H7Z"/></svg>
+    </button>
+    <!-- OEE — percent -->
+    <button class="rnav-item" id="rnav-oee" onclick="switchReport('oee')" title="OEE">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M18.5 3.5L3.5 18.5L5.5 20.5L20.5 5.5L18.5 3.5ZM7 4C6.20435 4 5.44129 4.31607 4.87868 4.87868C4.31607 5.44129 4 6.20435 4 7C4 7.79565 4.31607 8.55871 4.87868 9.12132C5.44129 9.68393 6.20435 10 7 10C7.79565 10 8.55871 9.68393 9.12132 9.12132C9.68393 8.55871 10 7.79565 10 7C10 6.20435 9.68393 5.44129 9.12132 4.87868C8.55871 4.31607 7.79565 4 7 4ZM17 14C16.2044 14 15.4413 14.3161 14.8787 14.8787C14.3161 15.4413 14 16.2044 14 17C14 17.7956 14.3161 18.5587 14.8787 19.1213C15.4413 19.6839 16.2044 20 17 20C17.7956 20 18.5587 19.6839 19.1213 19.1213C19.6839 18.5587 20 17.7956 20 17C20 16.2044 19.6839 15.4413 19.1213 14.8787C18.5587 14.3161 17.7956 14 17 14Z"/></svg>
+    </button>
+    <!-- Quantities — circle-multiple-outline -->
+    <button class="rnav-item" id="rnav-quantities" onclick="switchReport('quantities')" title="Quantities">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M15 4C10.58 4 7 7.58 7 12C7 16.42 10.58 20 15 20C19.42 20 23 16.42 23 12C23 7.58 19.42 4 15 4ZM15 18C11.69 18 9 15.31 9 12C9 8.69 11.69 6 15 6C18.31 6 21 8.69 21 12C21 15.31 18.31 18 15 18ZM7 6.35C4.67 7.17 3 9.39 3 12C3 14.61 4.67 16.83 7 17.65V19.74C3.55 18.85 1 15.73 1 12C1 8.27 3.55 5.15 7 4.26V6.35Z"/></svg>
+    </button>
+    <!-- Time usage — poll -->
+    <button class="rnav-item" title="Time usage">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.2 3H13.8V21H10.2V3ZM3 8.4H6.85714V21H3V8.4ZM21 13.2857H17.4V21H21V13.2857Z"/></svg>
+    </button>
+    <!-- Checklists — playlist-check -->
+    <button class="rnav-item" title="Checklists">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M2 6H14V8H2V6ZM2 10H14V12H2V10ZM2 16H10V14H2V16ZM23 13L21.5 11.5L16.01 17L13 14L11.5 15.5L16.01 20L23 13Z"/></svg>
+    </button>
+    <!-- Production speed — timer -->
+    <button class="rnav-item" title="Production speed">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M9 1H15V3H9V1ZM11 14V8H13V14H11ZM19.03 7.39L20.45 5.97C20.02 5.46 19.55 4.98 19.04 4.56L17.62 5.98C16.07 4.74 14.12 4 12 4C7.03 4 3 8.03 3 13C3 17.97 7.02 22 12 22C16.98 22 21 17.97 21 13C21 10.88 20.26 8.93 19.03 7.39ZM5 13C5 16.87 8.13 20 12 20C15.87 20 19 16.87 19 13C19 9.13 15.87 6 12 6C8.13 6 5 9.13 5 13Z"/></svg>
+    </button>
+    <div class="rnav-divider"></div>
+    <!-- database-export-outline x3 -->
+    <button class="rnav-item" title="Export">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.86 18L18.9 19C17.5 20.2 14.94 21 12 21C7.59 21 4 19.21 4 17V7C4 4.79 7.58 3 12 3C14.95 3 17.5 3.8 18.9 5L17.86 6L17.5 6.4C16.65 5.77 14.78 5 12 5C8.13 5 6 6.5 6 7C6 7.5 8.13 9 12 9C13.37 9 14.5 8.81 15.42 8.54L16.38 9.5H13.5V10.92C13 10.97 12.5 11 12 11C9.61 11 7.47 10.47 6 9.64V12.45C7.3 13.4 9.58 14 12 14C12.5 14 13 13.97 13.5 13.92V14.5H16.38L15.38 15.5L15.5 15.61C14.41 15.86 13.24 16 12 16C9.72 16 7.61 15.55 6 14.77V17C6 17.5 8.13 19 12 19C14.78 19 16.65 18.23 17.5 17.61L17.86 18ZM18.92 7.08L17.5 8.5L20 11H15V13H20L17.5 15.5L18.92 16.92L23.84 12L18.92 7.08Z"/></svg>
+    </button>
+    <button class="rnav-item" title="Database export">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.86 18L18.9 19C17.5 20.2 14.94 21 12 21C7.59 21 4 19.21 4 17V7C4 4.79 7.58 3 12 3C14.95 3 17.5 3.8 18.9 5L17.86 6L17.5 6.4C16.65 5.77 14.78 5 12 5C8.13 5 6 6.5 6 7C6 7.5 8.13 9 12 9C13.37 9 14.5 8.81 15.42 8.54L16.38 9.5H13.5V10.92C13 10.97 12.5 11 12 11C9.61 11 7.47 10.47 6 9.64V12.45C7.3 13.4 9.58 14 12 14C12.5 14 13 13.97 13.5 13.92V14.5H16.38L15.38 15.5L15.5 15.61C14.41 15.86 13.24 16 12 16C9.72 16 7.61 15.55 6 14.77V17C6 17.5 8.13 19 12 19C14.78 19 16.65 18.23 17.5 17.61L17.86 18ZM18.92 7.08L17.5 8.5L20 11H15V13H20L17.5 15.5L18.92 16.92L23.84 12L18.92 7.08Z"/></svg>
+    </button>
+    <button class="rnav-item" title="Settings">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.86 18L18.9 19C17.5 20.2 14.94 21 12 21C7.59 21 4 19.21 4 17V7C4 4.79 7.58 3 12 3C14.95 3 17.5 3.8 18.9 5L17.86 6L17.5 6.4C16.65 5.77 14.78 5 12 5C8.13 5 6 6.5 6 7C6 7.5 8.13 9 12 9C13.37 9 14.5 8.81 15.42 8.54L16.38 9.5H13.5V10.92C13 10.97 12.5 11 12 11C9.61 11 7.47 10.47 6 9.64V12.45C7.3 13.4 9.58 14 12 14C12.5 14 13 13.97 13.5 13.92V14.5H16.38L15.38 15.5L15.5 15.61C14.41 15.86 13.24 16 12 16C9.72 16 7.61 15.55 6 14.77V17C6 17.5 8.13 19 12 19C14.78 19 16.65 18.23 17.5 17.61L17.86 18ZM18.92 7.08L17.5 8.5L20 11H15V13H20L17.5 15.5L18.92 16.92L23.84 12L18.92 7.08Z"/></svg>
+    </button>
+  </div>
+
+  <!-- Main content -->
+  <div id="main-content">
+
+    <!-- Page title -->
+    <div class="page-head">
+      <h1 id="page-title">Downtime</h1>
+      <div class="page-actions">
+        <button class="page-icon-btn" id="pg-more" title="More"></button>
+        <button class="page-icon-btn" id="pg-share" title="Share"></button>
+        <button class="page-save" id="pg-save"></button>
+      </div>
+    </div>
+
+<div style="position:relative; padding:0 24px;">
+<div id="app" style="position:relative;">
+
+  <!-- ── Filter bar ─────────────────────────────────────────── -->
+  <!-- Chips wrap onto a second line when they do not fit. -->
+  <div id="filter-bar" style="min-height:48px; background:white; border-radius:4px; box-shadow:0 1px 3px rgba(0,0,0,0.12),0 1px 2px rgba(0,0,0,0.08); display:flex; flex-wrap:wrap; align-items:center; padding:8px 16px; gap:8px 8px; position:relative; z-index:30;">
+    <button class="filter-chip active" id="date-btn" onclick="toggleDatePicker()">← Last 7 days →</button>
+
+    <!-- Fixed filters (Factories, Stations, Stop groups, Stops): rendered by
+         logic.js renderActiveChips, same chip as the added ones, no remove. -->
+    <div id="fixed-filters" style="display:contents;"></div>
+
+    <!-- Active filter chips (added via + FILTER) render here -->
+    <div id="active-filters" style="display:contents;"></div>
+
+    <!-- + FILTER CTA → opens the dimension action menu -->
+    <div style="position:relative;">
+      <!-- Secondary button style (light green fill), matching "+ GROUP" /
+           "+ OPERATOR" secondary CTAs in Settings (.btn--secondary). -->
+      <button id="filter-cta" class="filter-cta" onclick="toggleFilterMenu(event)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#2ecc71"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2Z"/></svg>
+        Filter
+      </button>
+      <!-- Action menu (dimension list) -->
+      <div class="action-menu" id="filter-menu"></div>
+    </div>
+
+    <!-- RESET -->
+    <button id="filter-reset" onclick="resetFilters()"
+            style="border:none; background:none; cursor:pointer; font-family:\'Open Sans\',sans-serif; font-size:12px; font-weight:600; letter-spacing:0.4px; color:#212121; text-transform:uppercase; white-space:nowrap; padding:0 8px; opacity:0.38;">Reset</button>
+
+    <!-- Selection-list dropdown (shared; positioned under the active chip) -->
+    <div class="selection-list" id="selection-list"></div>
+  </div>
+
+  <!-- ── Downtime chart section ────────────────────────────── -->
+  <div id="downtime-chart-section" style="margin-top:16px; background:white; border-radius:4px; box-shadow:0 1px 3px rgba(0,0,0,0.12),0 1px 2px rgba(0,0,0,0.08);">
+    <!-- Chart controls -->
+    <div class="chart-head" style="position:relative; z-index:20; border-radius:4px 4px 0 0;">
+      <button class="chart-back"><span class="chart-back-icn"></span>Back</button>
+      <div style="flex:1;"></div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <div style="position:relative;">
+          <button class="filter-chip active" id="dt-yaxis-btn" onclick="toggleYDropdown(event)">Y-axis: Duration</button>
+          <div class="xaxis-dropdown" id="yaxis-dropdown"></div>
+        </div>
+        <div style="position:relative;">
+          <button class="filter-chip" id="y2axis-btn" onclick="toggleY2Dropdown(event)">2nd Y-axis: -</button>
+          <div class="xaxis-dropdown" id="y2axis-dropdown"></div>
+        </div>
+        <div style="position:relative;">
+          <button class="filter-chip active" id="xaxis-btn" onclick="toggleXAxisDropdown(event)">X-axis: Stop reasons</button>
+          <div class="xaxis-dropdown" id="xaxis-dropdown"></div>
+        </div>
+        <div style="position:relative;">
+          <button class="filter-chip" id="splitby-btn" onclick="toggleSplitDropdown(event)">Split by: -</button>
+          <div class="xaxis-dropdown" id="splitby-dropdown"></div>
+        </div>
+        <button class="chart-cog" id="dt-cog" title="Chart settings"></button>
+      </div>
+    </div>
+    <!-- Chart area -->
+    <div style="height:560px; background:white; display:flex; flex-direction:column; overflow:hidden; border-radius:0 0 4px 4px;">
+      <div id="chart-container" style="flex:1; min-height:0; position:relative;"></div>
+      <div id="chart-legend" style="padding:6px 20px 12px 20px; display:flex; flex-wrap:wrap; gap:6px 18px; flex-shrink:0;"></div>
+    </div>
+  </div>
+
+  <!-- ── OEE chart section ──────────────────────────────────── -->
+  <div id="oee-chart-section" class="report-section" style="display:none;">
+    <div class="report-card">
+    <!-- Chart controls -->
+    <div class="chart-head" style="position:relative; z-index:20;">
+      <button class="chart-back"><span class="chart-back-icn"></span>Back</button>
+      <div style="flex:1;"></div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <div style="position:relative;">
+          <button class="filter-chip active" id="oee-charttype-btn" onclick="toggleOeeChartTypeDropdown(event)">Line chart</button>
+          <div class="xaxis-dropdown" id="oee-charttype-dropdown"></div>
+        </div>
+        <div style="position:relative;">
+          <button class="filter-chip active" id="oee-xaxis-btn" onclick="toggleOeeXAxisDropdown(event)">X-axis: Day</button>
+          <div class="xaxis-dropdown" id="oee-xaxis-dropdown"></div>
+        </div>
+        <div style="position:relative;">
+          <button class="filter-chip" id="oee-splitby-btn" onclick="toggleOeeSplitDropdown(event)">Split by: –</button>
+          <div class="xaxis-dropdown" id="oee-splitby-dropdown"></div>
+        </div>
+        <button class="chart-cog" id="oee-cog" title="Chart settings"></button>
+      </div>
+    </div>
+    <!-- Chart area -->
+    <div style="height:540px; background:white; display:flex; flex-direction:column; overflow:hidden;">
+      <div id="oee-chart-container" style="flex:1; min-height:0; position:relative;"></div>
+      <!-- Fixed height: the chart measures its container before the legend fills in. -->
+      <div style="display:flex; align-items:center; height:56px; padding:0 16px 8px 24px; flex-shrink:0;">
+        <div id="oee-chart-legend" style="display:flex; flex-wrap:wrap; gap:6px 18px; flex:1;"></div>
+        <div id="oee-pager" style="display:none; align-items:center; gap:4px;"></div>
+      </div>
+    </div>
+    </div>
+    <!-- Data table — same chrome as the Downtime table -->
+    <div id="oee-table-wrap" style="display:none; padding:16px 0 32px;">
+      <div class="dt-card">
+        <div style="padding:8px 8px 8px 16px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+            <span style="font-family:'Open Sans',sans-serif; font-size:20px; font-weight:600; color:#212121; line-height:1.296;">OEE</span>
+            <span class="tbl-info"></span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-shrink:0;">
+            <div class="tbl-chip is-on"><span class="tbl-cols-icn"></span><span id="oee-col-count">Columns: 21</span><span class="tbl-caret"></span></div>
+            <div class="tbl-chip is-on"><span class="tbl-time-icn"></span><span>Time format: Readable</span><span class="tbl-caret"></span></div>
+            <button class="tbl-export"><span class="tbl-dl-icn"></span>Export</button>
+          </div>
+        </div>
+        <div class="dt-scroll" id="oee-scroll">
+          <table id="oee-table" style="min-width:900px; width:100%;">
+            <thead id="oee-head"></thead>
+            <tbody id="oee-body"></tbody>
+          </table>
+        </div>
+        <div style="padding:6px 12px; display:flex; align-items:center; justify-content:flex-end; gap:4px; border-top:1px solid #e0e0e0;">
+          <span id="oee-tbl-page-info" style="font-family:'Open Sans',sans-serif; font-size:13px; color:#757575; margin-right:4px;"></span>
+          <button id="oee-tbl-prev" class="dt-page-btn" onclick="oeeTblPrev()">&#8249;</button>
+          <button id="oee-tbl-next" class="dt-page-btn" onclick="oeeTblNext()">&#8250;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Quantities report ─────────────────────────────────────── -->
+  <div id="qty-chart-section" class="report-section" style="display:none;">
+    <div class="report-card">
+    <!-- Chart controls -->
+    <div class="chart-head" style="position:relative; z-index:20;">
+      <button class="chart-back"><span class="chart-back-icn"></span>Back</button>
+      <div style="flex:1;"></div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="filter-chip active" id="qty-yaxis-btn">Y-axis: Quantity (primary unit)</button>
+        <div style="position:relative;">
+          <button class="filter-chip active" id="qty-xaxis-btn" onclick="toggleQtyXAxisDropdown(event)">X-axis: Day</button>
+          <div class="xaxis-dropdown" id="qty-xaxis-dropdown"></div>
+        </div>
+        <div style="position:relative;">
+          <button class="filter-chip" id="qty-splitby-btn" onclick="toggleQtySplitDropdown(event)">Split by: –</button>
+          <div class="xaxis-dropdown" id="qty-splitby-dropdown"></div>
+        </div>
+        <button class="chart-cog" id="qty-cog" title="Chart settings"></button>
+      </div>
+    </div>
+    <!-- Chart area -->
+    <div style="height:540px; background:white; display:flex; flex-direction:column; overflow:hidden;">
+      <div id="qty-chart-container" style="flex:1; min-height:0; position:relative;"></div>
+      <!-- Fixed height: the chart measures its container before the legend fills in. -->
+      <div style="display:flex; align-items:center; height:56px; padding:0 16px 8px 24px; flex-shrink:0;">
+        <div id="qty-chart-legend" style="display:flex; flex-wrap:wrap; gap:6px 18px; flex:1;"></div>
+        <div id="qty-pager" style="display:none; align-items:center; gap:4px;"></div>
+      </div>
+    </div>
+    </div>
+    <!-- Data table — same chrome as the Downtime table -->
+    <div id="qty-table-wrap" style="display:none; padding:16px 0 32px;">
+      <div class="dt-card">
+        <div style="padding:8px 8px 8px 16px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+            <span style="font-family:'Open Sans',sans-serif; font-size:20px; font-weight:600; color:#212121; line-height:1.296;">Quantities</span>
+            <span class="tbl-info"></span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-shrink:0;">
+            <div class="tbl-chip is-on"><span class="tbl-cols-icn"></span><span id="qty-col-count">Columns: 11</span><span class="tbl-caret"></span></div>
+            <button class="tbl-export"><span class="tbl-dl-icn"></span>Export</button>
+          </div>
+        </div>
+        <div class="dt-scroll" id="qty-scroll">
+          <table id="qty-table" style="min-width:900px; width:100%;">
+            <thead id="qty-head"></thead>
+            <tbody id="qty-body"></tbody>
+          </table>
+        </div>
+        <div style="padding:6px 12px; display:flex; align-items:center; justify-content:flex-end; gap:4px; border-top:1px solid #e0e0e0;">
+          <span id="qty-tbl-page-info" style="font-family:'Open Sans',sans-serif; font-size:13px; color:#757575; margin-right:4px;"></span>
+          <button id="qty-tbl-prev" class="dt-page-btn" onclick="qtyTblPrev()">&#8249;</button>
+          <button id="qty-tbl-next" class="dt-page-btn" onclick="qtyTblNext()">&#8250;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="chart-tooltip" style="position:fixed; pointer-events:none; display:none; background:black; border-radius:4px; padding:16px; box-shadow:0px 3px 1px -2px rgba(0,0,0,0.12),0px 2px 2px 0px rgba(0,0,0,0.12),0px 1px 5px 0px rgba(0,0,0,0.25); font-family:'Open Sans',sans-serif; font-size:12px; color:white; z-index:999;"></div>
+
+  <!-- ── Date Picker ─────────────────────────────────────────── -->
+  <div id="date-picker" class="dp-shadow"
+       style="position:absolute; top:42px; left:17px; width:600px; background:white;
+              border-radius:4px; z-index:100; display:none; flex-direction:column; overflow:hidden;">
+
+    <!-- SECTION 1 – Preset chips (h≈152) -->
+    <div style="display:flex; flex-wrap:wrap; justify-content:center; padding:16px; gap:0;" id="chips-primary">
+      <div style="padding:4px;"><span class="chip" data-preset="today"        onclick="selectPreset(this)">Today</span></div>
+      <div style="padding:4px;"><span class="chip" data-preset="yesterday"    onclick="selectPreset(this)">Yesterday</span></div>
+      <div style="padding:4px;"><span class="chip" data-preset="this_week"    onclick="selectPreset(this)">This week</span></div>
+      <div style="padding:4px;"><span class="chip" data-preset="last_week"    onclick="selectPreset(this)">Last week</span></div>
+      <div style="padding:4px;"><span class="chip selected" data-preset="last7" onclick="selectPreset(this)">Last 7 days</span></div>
+      <div style="padding:4px;"><span class="chip" data-preset="this_month"   onclick="selectPreset(this)">This month</span></div>
+      <div style="padding:4px;"><span class="chip" data-preset="last_month"   onclick="selectPreset(this)">Last month</span></div>
+      <div style="padding:4px;"><span class="chip" data-preset="last30"       onclick="selectPreset(this)">Last 30 days</span></div>
+      <div style="padding:4px;"><span class="chip" data-preset="this_quarter" onclick="selectPreset(this)">This quarter</span></div>
+      <div style="padding:4px;"><span class="chip" data-preset="last_quarter" onclick="selectPreset(this)">Last quarter</span></div>
+      <div style="padding:4px;"><span class="chip" data-preset="last4q"       onclick="selectPreset(this)">Last 4 quarters</span></div>
+      <div style="padding:4px;"><span class="chip" data-preset="this_year"    onclick="selectPreset(this)">This year</span></div>
+      <div style="padding:4px;"><span class="chip" data-preset="last_year"    onclick="selectPreset(this)">Last year</span></div>
+      <div style="padding:4px;"><span class="chip" data-preset="custom"       onclick="selectPreset(this)">Custom</span></div>
+    </div>
+
+    <!-- SECTION 2 – Two-column calendar (h≈276) -->
+    <div style="display:flex; align-items:flex-start; padding-top:8px;">
+      <!-- Left calendar column -->
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:16px; padding-bottom:8px;">
+        <div style="position:relative; width:100%; display:flex; align-items:center; justify-content:center; height:40px;">
+          <button onclick="navigate(-1)"
+                  style="position:absolute; left:8px; top:50%; transform:translateY(-50%);
+                         width:40px; height:40px; border:none; background:transparent;
+                         cursor:pointer; border-radius:50%; display:flex; align-items:center;
+                         justify-content:center; font-size:18px; color:#212121; line-height:1;">
+            ‹
+          </button>
+          <span id="cal-left-title" style="font-family:'Open Sans',sans-serif; font-size:14px; color:#212121;">August 2024</span>
+        </div>
+        <div id="cal-left-grid" style="padding:0 12px 0 12px;"></div>
+      </div>
+
+      <!-- Right calendar column -->
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:16px; padding-bottom:8px;">
+        <div style="position:relative; width:100%; display:flex; align-items:center; justify-content:center; height:40px;">
+          <button id="nav-next-double" onclick="navigate(2)"
+                  style="position:absolute; right:38px; top:50%; transform:translateY(-50%);
+                         width:40px; height:40px; border:none; background:transparent;
+                         cursor:pointer; border-radius:50%; display:flex; align-items:center;
+                         justify-content:center; font-size:14px; color:#212121; opacity:0.5; line-height:1;">
+            »
+          </button>
+          <button id="nav-next-single" onclick="navigate(1)"
+                  style="position:absolute; right:4px; top:50%; transform:translateY(-50%);
+                         width:40px; height:40px; border:none; background:transparent;
+                         cursor:pointer; border-radius:50%; display:flex; align-items:center;
+                         justify-content:center; font-size:18px; color:#212121; line-height:1;">
+            ›
+          </button>
+          <span id="cal-right-title" style="font-family:'Open Sans',sans-serif; font-size:14px; color:#212121;">September 2024</span>
+        </div>
+        <div id="cal-right-grid" style="padding:0 12px 0 12px;"></div>
+      </div>
+    </div>
+
+    <!-- SECTION 3 – Footer: Close / Apply buttons -->
+    <div style="display:flex; align-items:center; justify-content:space-between;
+                padding:8px 16px 16px 16px;">
+      <div style="width:1px; height:21px;"></div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="btn-close" onclick="closeDatePicker()">Close</button>
+        <button class="btn-apply" onclick="applyDatePicker()">Apply</button>
+      </div>
+    </div>
+
+  </div><!-- /date-picker -->
+
+</div><!-- /app -->
+</div><!-- /padding wrapper -->
+
+<div id="downtime-table-section">
+<!-- ── Data Table ──────────────────────────────────────────────── -->
+<div style="padding:16px 24px 32px;">
+  <div id="dt-card">
+    <!-- Card header -->
+    <div style="padding:8px 8px 8px 16px; display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+        <span style="font-family:'Open Sans',sans-serif; font-size:20px; font-weight:600; color:#212121; line-height:1.296; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Downtime</span>
+        <span class="tbl-info"></span>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center; flex-shrink:0;">
+        <!-- Columns chip: the column picker -->
+        <div style="position:relative;">
+          <div class="tbl-chip is-on" id="dt-cols-btn" onclick="toggleColumnsMenu(event)"><span class="tbl-cols-icn"></span><span id="dt-col-count">Columns: All</span><span class="tbl-caret"></span></div>
+          <div class="chip-menu chip-menu-cols" id="dt-cols-menu"></div>
+        </div>
+        <!-- Time format chip -->
+        <div style="position:relative;">
+          <div class="tbl-chip is-on" id="dt-time-btn" onclick="toggleTimeMenu(event)"><span class="tbl-time-icn"></span><span id="dt-time-label">Time format: Readable</span><span class="tbl-caret"></span></div>
+          <div class="chip-menu" id="dt-time-menu"></div>
+        </div>
+        <!-- Export chip -->
+        <button class="tbl-export"><span class="tbl-dl-icn"></span>Export</button>
+      </div>
+    </div>
+    <!-- Scrollable table -->
+    <div id="dt-scroll">
+      <table id="dt-table" style="min-width:900px; width:100%;">
+        <thead id="dt-head"></thead>
+        <tbody id="dt-body"></tbody>
+      </table>
+    </div>
+    <!-- Footer -->
+    <div style="padding:6px 12px; display:flex; align-items:center; justify-content:flex-end; gap:4px; border-top:1px solid #e0e0e0;">
+      <span id="dt-page-info" style="font-family:'Open Sans',sans-serif; font-size:13px; color:#757575; margin-right:4px;"></span>
+      <button id="dt-prev" class="dt-page-btn" onclick="dtPrev()">&#8249;</button>
+      <button id="dt-next" class="dt-page-btn" onclick="dtNext()">&#8250;</button>
+    </div>
+  </div>
+</div>
+</div><!-- /downtime-table-section -->
+
+</div><!-- /main-content -->
+</div><!-- /app-body -->
+
+<script src="../shared/tags-store.js"></script>
+<script src="data.js?v=26"></script>
+<script src="logic.js?v=48"></script>
+<script src="../shared/proto-panel.js"></script>
+</body>
+</html>

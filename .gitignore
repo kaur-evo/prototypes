@@ -20,7 +20,7 @@ Icon?
 /teams2/
 
 # Older HTML version of the research doc — markdown is the source of truth
-/operators-teams-ux-research.html
+/operators-teams/operators-teams-ux-research.html
 
 # Logs / temp
 *.log

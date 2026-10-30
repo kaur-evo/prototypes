@@ -1,28 +1,22 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Operators &amp; Teams Prototype</title>
-  <style>
-    body { font-family: system-ui, sans-serif; padding: 48px; color: #212121; max-width: 640px; }
-    h1 { font-size: 24px; font-weight: 600; margin: 0 0 4px; }
-    p.sub { color: #707070; margin: 0 0 28px; }
-    ul { list-style: none; padding: 0; margin: 0; }
-    li { margin: 0 0 12px; }
-    a { display: block; padding: 16px 18px; border: 1px solid #e0e0e0; border-radius: 8px;
-        text-decoration: none; color: #212121; transition: border-color .12s, background .12s; }
-    a:hover { border-color: #2ecc71; background: rgba(46,204,113,0.06); }
-    a b { display: block; font-size: 16px; font-weight: 600; }
-    a span { display: block; font-size: 13px; color: #707070; margin-top: 2px; }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Evocon prototypes</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/launcher.css">
 </head>
 <body>
-  <h1>Operators &amp; Teams — Prototype</h1>
-  <p class="sub">Three connected surfaces. You can also move between them via the left sidebar icons inside each.</p>
-  <ul>
-    <li><a href="prototype/setup-proto.html"><b>Settings</b><span>Operators &amp; groups setup (Blue Team / Red Team / Operators)</span></a></li>
-    <li><a href="prototype/index.html"><b>Shift View</b><span>Operator picker + saved shift card</span></a></li>
-    <li><a href="wf-reports/index.html"><b>Reports</b><span>Downtime · OEE · Quantities — by operator, group &amp; shift leader</span></a></li>
-  </ul>
+  <a class="logo" href="./"><img src="assets/evocon-logo.svg" alt="Evocon"></a>
+  <main>
+    <img class="mr-evocon" src="assets/mrevocon.svg" alt="">
+    <!-- One row per prototype, newest first. Each links to the prototype's
+         folder, which is its shareable URL. See CLAUDE.md. -->
+    <nav class="selector">
+      <a href="tags-reports/"><span>Tags to Reports</span><svg width="21" height="21" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12L8.59 7.41L10 6L16 12L10 18L8.59 16.58Z"/></svg></a>
+      <a href="operators-teams/"><span>Operators &amp; Teams</span><svg width="21" height="21" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12L8.59 7.41L10 6L16 12L10 18L8.59 16.58Z"/></svg></a>
+    </nav>
+  </main>
 </body>
 </html>

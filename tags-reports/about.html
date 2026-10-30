@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tags to Reports</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #f5f5f5; font-family: 'Open Sans', sans-serif; color: #212121; }
+    main { max-width: 720px; margin: 48px auto; padding: 0 16px; }
+    h1 { font-size: 28px; font-weight: 600; margin: 0 0 8px; }
+    p { font-size: 15px; line-height: 22px; color: #424242; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin: 24px 0; }
+    a.card { display: block; background: #fff; border-radius: 4px; padding: 20px; text-decoration: none; color: inherit;
+             box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.08); }
+    a.card:hover { box-shadow: 0 3px 8px rgba(0,0,0,.16); }
+    a.card b { display: block; font-size: 17px; margin-bottom: 4px; color: #27ae60; }
+    ol { font-size: 15px; line-height: 24px; color: #424242; padding-left: 20px; }
+    kbd { background: #eee; border-radius: 3px; padding: 1px 6px; font-family: inherit; font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Tags to Reports</h1>
+  <p>Prototype. Tags become a filter in the Downtime report. Stop reasons, stop groups, operators and operator groups can carry tags.</p>
+  <div class="cards">
+    <a class="card" href="settings/settings.html#tags"><b>Settings</b>Create tags and give them to stop reasons, stop groups, operators and operator groups.</a>
+    <a class="card" href="reports/index.html"><b>Reports: Downtime</b>Filter downtime by tags from "+FILTER".</a>
+  </div>
+  <p><b>Try this</b></p>
+  <ol>
+    <li>Open Downtime. "+FILTER" → Tags → Cleaning. Only stops with Cleaning remain.</li>
+    <li>Set "X-axis: Tags". One bar per tag, plus "No tag". A stop counts in every tag it has.</li>
+    <li>Set "X-axis: Stations" and "Split by: Tags".</li>
+    <li>Add a Products filter next to Tags. Both apply.</li>
+    <li>In Settings, give "Motor failure" the tag Cleaning. Back in Downtime, it now passes the filter.</li>
+  </ol>
+  <p>Prototype settings: the button in the bottom-right corner, or <kbd>H</kbd>.</p>
+</main>
+</body>
+</html>

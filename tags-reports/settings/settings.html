@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tags · Evocon Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="evocon-ui.css?v=3">
+</head>
+<body>
+
+<div id="app-root">
+  <!-- Main content; Chrome.render() wraps it with sidebars + top bar. One
+       section per hash route (#tags, #stop-reasons, #operators). -->
+
+  <!-- ───────── Settings → Tags (SettingsTagsOverview) ───────── -->
+  <section class="page" id="pageTags" hidden>
+    <div class="page-header">
+      <h1 class="page-header__title">Tags</h1>
+      <div class="page-header__actions">
+        <button class="btn btn--primary" id="btnNewTag">
+          <span class="btn__icon" data-icn="add" data-tint="white"></span>
+          <span class="btn__text">Tag</span>
+        </button>
+      </div>
+    </div>
+    <div class="tablecard">
+      <table class="table list" id="tagsTable"></table>
+      <div class="tablefooter" data-footer="tags"></div>
+    </div>
+  </section>
+
+  <!-- ───────── Settings → Stop reasons (SettingsStopReasonsOverview) ───────── -->
+  <section class="page" id="pageStopReasons" hidden>
+    <div class="page-header">
+      <h1 class="page-header__title" data-title="stop-reasons">Stop reasons</h1>
+      <div class="page-header__actions">
+        <button class="btn btn--secondary" disabled title="Read-only in this prototype">
+          <span class="btn__icon" data-icn="add" data-tint="green"></span>
+          <span class="btn__text">Group</span>
+        </button>
+        <button class="btn btn--primary" disabled title="Read-only in this prototype">
+          <span class="btn__icon" data-icn="add" data-tint="white"></span>
+          <span class="btn__text">Reason</span>
+        </button>
+      </div>
+    </div>
+    <div class="filterbar">
+      <div class="filterbar__chips">
+        <button class="chip chip--search" aria-label="Search"><span class="chip__icon" data-icn="search" data-size="16"></span></button>
+        <button class="chip"><span class="chip__icon" data-icn="factory" data-size="18"></span>Factories: All<span class="chip__caret" data-icn="menu-down" data-size="18"></span></button>
+        <button class="chip"><span class="chip__icon" data-icn="stations" data-size="18"></span>Stations: All<span class="chip__caret" data-icn="menu-down" data-size="18"></span></button>
+        <button class="chip"><span class="chip__icon" data-icn="group" data-size="18"></span>Group: All<span class="chip__caret" data-icn="menu-down" data-size="18"></span></button>
+        <button class="chip"><span class="chip__icon" data-icn="types" data-size="18"></span>Type: All<span class="chip__caret" data-icn="menu-down" data-size="18"></span></button>
+        <button class="chip-reset">Reset</button>
+      </div>
+      <div class="view-toggle" data-toggle="stop-reasons">
+        <button class="view-toggle__btn" data-view="groups"><span data-icn="group" data-size="16"></span>Groups</button>
+        <button class="view-toggle__btn" data-view="list"><span data-icn="list" data-size="16"></span>List</button>
+      </div>
+    </div>
+    <div data-view-body="list">
+      <div class="tablecard">
+        <table class="table list" id="srTable"></table>
+        <div class="tablefooter" data-footer="stop-reasons"></div>
+      </div>
+    </div>
+    <div data-view-body="groups" id="srGroups"></div>
+  </section>
+
+  <!-- ───────── Settings → Operators (SettingsOperatorsOverview + groups) ───────── -->
+  <section class="page" id="pageOperators" hidden>
+    <div class="page-header">
+      <h1 class="page-header__title" data-title="operators">Operators</h1>
+      <div class="page-header__actions">
+        <button class="btn btn--secondary" disabled title="Read-only in this prototype">
+          <span class="btn__icon" data-icn="add" data-tint="green"></span>
+          <span class="btn__text">Group</span>
+        </button>
+        <button class="btn btn--primary" disabled title="Read-only in this prototype">
+          <span class="btn__icon" data-icn="add" data-tint="white"></span>
+          <span class="btn__text">Operator</span>
+        </button>
+      </div>
+    </div>
+    <div class="filterbar">
+      <div class="filterbar__chips">
+        <button class="chip chip--search" aria-label="Search"><span class="chip__icon" data-icn="search" data-size="16"></span></button>
+        <button class="chip"><span class="chip__icon" data-icn="factory" data-size="18"></span>Factories: All<span class="chip__caret" data-icn="menu-down" data-size="18"></span></button>
+        <button class="chip"><span class="chip__icon" data-icn="stations" data-size="18"></span>Stations: All<span class="chip__caret" data-icn="menu-down" data-size="18"></span></button>
+        <button class="chip"><span class="chip__icon" data-icn="key" data-size="18"></span>Passcode: All<span class="chip__caret" data-icn="menu-down" data-size="18"></span></button>
+        <button class="chip-reset">Reset</button>
+      </div>
+      <div class="view-toggle" data-toggle="operators">
+        <button class="view-toggle__btn" data-view="groups"><span data-icn="group" data-size="16"></span>Groups</button>
+        <button class="view-toggle__btn" data-view="list"><span data-icn="list" data-size="16"></span>List</button>
+      </div>
+    </div>
+    <div data-view-body="list">
+      <div class="tablecard">
+        <table class="table list" id="opTable"></table>
+        <div class="tablefooter" data-footer="operators"></div>
+      </div>
+    </div>
+    <div data-view-body="groups" id="opGroups"></div>
+  </section>
+</div>
+
+<!-- ───────── Dialogs ─────────
+     One shell, filled per entity by the open*Dialog() functions below. -->
+<div class="modal-overlay" id="modalEdit">
+  <div class="modal">
+    <div class="modal__header"><div class="modal__title" data-slot="title"></div></div>
+    <div class="modal__body" data-slot="body"></div>
+    <div class="modal__footer">
+      <div class="modal__footer-left">
+        <button class="btn btn--danger" data-slot="delete"><span class="btn__text">Delete</span></button>
+      </div>
+      <div class="modal__footer-right">
+        <button class="btn btn--cancel" data-close><span class="btn__text">Cancel</span></button>
+        <button class="btn btn--primary" data-slot="save"><span class="btn__text">Save</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation (useConfirmDialogStore): sits above the edit dialog. -->
+<div class="modal-overlay modal-overlay--top" id="modalConfirm">
+  <div class="modal modal--confirm">
+    <div class="modal__header"><div class="modal__title">Confirmation</div></div>
+    <div class="modal__body">
+      <p class="confirm__text" data-slot="text"></p>
+      <p class="confirm__detail" data-slot="detail"></p>
+    </div>
+    <div class="modal__footer">
+      <div class="modal__footer-left"></div>
+      <div class="modal__footer-right">
+        <button class="btn btn--cancel" data-close><span class="btn__text">Cancel</span></button>
+        <button class="btn" data-slot="confirm"><span class="btn__text"></span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Shared popover for every multi-select field. -->
+<div class="dropdown" id="menu"></div>
+
+<script src="../shared/tags-store.js"></script>
+<script src="../shared/proto-panel.js"></script>
+<script src="chrome.js"></script>
+<script>
+// ─── Bootstrap chrome ───
+Chrome.render({ sb1Active: 'settings', sb2Active: null, title: '', mountSelector: '#app-root' });
+
+// ─── data-icn hydration ───
+// Replaces a placeholder `<span data-icn="NAME" data-size="N" data-tint="green">`
+// with an actual `<img>` produced by Chrome.icon(...). The placeholder's
+// existing classes are preserved (so styling hooks like `.chip__icon` survive).
+function hydrateIcons(root) {
+  (root || document).querySelectorAll('[data-icn]').forEach(el => {
+    if (el.tagName === 'IMG') return; // already hydrated
+    const size = el.dataset.size ? Number(el.dataset.size) : 24;
+    const tint = el.dataset.tint || null;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = Chrome.icon(el.dataset.icn, { size, tint });
+    const img = tmp.firstChild;
+    if (!img) return;
+    el.classList.forEach(c => { if (!c.startsWith('icn')) img.classList.add(c); });
+    if (el.title) img.title = el.title;
+    el.replaceWith(img);
+  });
+}
+hydrateIcons();
+
+// ─── Helpers ───
+const S = window.TagsStore;
+const $  = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const tagsOn = () => S.isTagsEnabled();
+const typeLabel = key => S.TAG_TYPES.find(t => t.key === key)?.label || key;
+
+// Stations in the product's order; factories derived from them.
+const STATION_ORDER = S.STATIONS.map(s => s.name);
+const sortStations = list => [...(list || [])].sort((a, b) => STATION_ORDER.indexOf(a) - STATION_ORDER.indexOf(b));
+const factoriesOf = stations => S.FACTORIES.filter(f => (stations || []).some(n => S.STATIONS.find(s => s.name === n)?.factory === f));
+
+// Table text, as settingsTableHeaders.js formats lists: "All" when every item
+// is picked, "-" when none, otherwise comma separated.
+function formatList(list, total) {
+  if (!list || list.length === 0) return '-';
+  if (total > 0 && list.length >= total) return 'All';
+  return list.join(', ');
+}
+// Field text, as SelectionMenuInput shows a multi-select: "All", or the first
+// item + "N more" (listToShortenedString).
+function shortList(list, total) {
+  if (!list.length) return '';
+  if (total > 0 && list.length >= total) return 'All';
+  return list.length === 1 ? list[0] : `${list[0]} + ${list.length - 1} more`;
+}
+const tagText = ids => S.tagNames(ids).join(', ') || '-';
+
+// ─── Tables ───
+// cols: [{ label, width, bold, html?, text(row) }]. Plain text cells get a
+// title so ellipsed values stay readable on hover.
+// The table never shrinks below its fixed columns + room for the free one;
+// narrower screens scroll inside the card, as the product's tables do.
+const minWidth = cols => cols.reduce((w, c) => w + (parseInt(c.width, 10) || 140), 0) + 'px';
+function tableHtml(cols, rows, rowAttrs) {
+  return `
+    <colgroup>${cols.map(c => `<col style="width:${c.width || 'auto'}">`).join('')}</colgroup>
+    <thead><tr>${cols.map(c => `<th><span class="th-inner">${esc(c.label || '')}</span></th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r => `<tr ${rowAttrs(r)}>${cols.map(c => {
+      if (c.html) return `<td class="${c.bold ? 'td-bold' : ''}">${c.html(r)}</td>`;
+      const t = c.text(r);
+      return `<td class="${c.bold ? 'td-bold' : ''}" title="${esc(t)}">${esc(t)}</td>`;
+    }).join('')}</tr>`).join('')}</tbody>`;
+}
+function renderFooter(key, count) {
+  const el = $(`[data-footer="${key}"]`);
+  el.innerHTML = `
+    <span class="tablefooter__label">Rows per page</span>
+    <span class="tablefooter__per-page">All <span data-icn="menu-down" data-size="18"></span></span>
+    <span class="tablefooter__count">${count ? `1-${count}/${count}` : '0-0/0'}</span>
+    <div class="tablefooter__nav">
+      <button class="icon-btn" aria-label="Previous"><span data-icn="arrow-left"></span></button>
+      <button class="icon-btn" aria-label="Next"><span data-icn="arrow-right"></span></button>
+    </div>`;
+  hydrateIcons(el);
+}
+const arrowCol = { width: '50px', html: () => '<span class="td-arrow" data-icn="chevron-right" data-size="18"></span>' };
+
+// Collapsible group panels (SettingsGroupPanels). `openIds` keeps which
+// panels are open across re-renders.
+function groupPanelsHtml(groups, { openIds, color, count, global, cols, rows }) {
+  return groups.map(g => `
+    <div class="team-group ${openIds.has(g.id) ? 'is-open' : ''}" data-group-id="${g.id}">
+      <div class="team-group__header">
+        <div class="team-group__left">
+          <span class="team-group__drag" data-icn="drag-vertical" aria-hidden="true"></span>
+          <button class="icon-btn" title="Edit" data-edit-group="${g.id}"><span data-icn="edit"></span></button>
+          ${color ? `<span class="swatch swatch--16" style="background:${esc(g.color)}"></span>` : ''}
+          <span class="team-group__name">${esc(g.name)}</span>
+          <span class="team-group__count">(${count(g)})</span>
+          ${global ? '<span class="team-group__global" data-icn="global" data-size="16" title="Global group"></span>' : ''}
+        </div>
+        ${tagsOn() ? `
+          <span class="team-group__tags ${g.tagIds.length ? '' : 'is-empty'}" title="${esc(tagText(g.tagIds))}">
+            <span data-icn="tags" data-size="16"></span><span>${esc(tagText(g.tagIds))}</span>
+          </span>` : ''}
+        <span class="team-group__caret" data-icn="menu-down"></span>
+      </div>
+      <div class="team-group__body">${openIds.has(g.id)
+        ? `<table class="table" style="min-width:${minWidth(cols)}">${tableHtml(cols, rows(g), r => `data-id="${r.id}"`)}</table>` : ''}</div>
+    </div>`).join('');
+}
+// Header click opens/closes a panel; the pencil edits the group.
+function wireGroupPanels(container, openIds, onEditGroup, onRow, rerender) {
+  hydrateIcons(container);
+  $$('.team-group__header', container).forEach(h => h.addEventListener('click', e => {
+    const id = Number(h.parentElement.dataset.groupId);
+    if (e.target.closest('[data-edit-group]')) { onEditGroup(id); return; }
+    if (openIds.has(id)) openIds.delete(id); else openIds.add(id);
+    rerender();
+  }));
+  $$('.team-group__body tbody tr', container).forEach(tr => tr.addEventListener('click', () => onRow(Number(tr.dataset.id))));
+}
+
+// ─── Page: Tags ───
+// Columns as tagsTableHeadersConf: Name, Alias, Type.
+function renderTags() {
+  const tags = S.getTags().sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+  $('#tagsTable').innerHTML = tableHtml([
+    { label: 'Name',  width: '400px', bold: true, text: t => t.name },
+    { label: 'Alias', width: '200px', text: t => t.alias },
+    { label: 'Type',  text: t => t.types.map(typeLabel).join(', ') || '-' },
+  ], tags, t => `data-id="${t.id}"`);
+  $('#tagsTable').style.minWidth = '800px';
+  $$('#tagsTable tbody tr').forEach(tr => tr.addEventListener('click', () => openTagDialog(Number(tr.dataset.id))));
+  renderFooter('tags', tags.length);
+}
+
+// ─── Page: Stop reasons ───
+// List columns as stopReasonsTableHeadersConf, plus "Stop reason tags" and
+// "Stop group tags" (the two fields Reports filters on). Groups view drops
+// Group and Stop group tags: the group header carries those.
+const views = { 'stop-reasons': 'groups', operators: 'list' };
+const srOpen = new Set();
+
+function groupCell(g) {
+  if (!g) return '-';
+  return `<span class="cell-flex"><span class="swatch swatch--16" style="background:${esc(g.color)}"></span>
+    <span class="cell-ellipsis">${esc(g.name)}</span><span data-icn="global" data-size="16" title="Global group"></span></span>`;
+}
+function stopTypeCell(r) {
+  const unplanned = r.type === 'Unplanned';
+  return `<span class="cell-flex"><span class="dot ${unplanned ? 'dot--red' : 'dot--grey'}"></span>${unplanned ? 'Unplanned' : 'Planned'}</span>`;
+}
+function reasonCols(withGroup) {
+  const groups = S.getStopGroups();
+  return [
+    { label: 'Stop reason', width: '170px', bold: true, text: r => r.name },
+    { label: 'Stop types', width: '120px', html: stopTypeCell },
+    { label: 'OEE calculation', width: '125px', text: r => r.includeInOee ? 'Included' : 'Excluded' },
+    { label: 'Factories', width: '100px', text: r => formatList(factoriesOf(r.stations), S.FACTORIES.length) },
+    withGroup && { label: 'Group', width: '160px', html: r => groupCell(groups.find(g => g.name === r.group)) },
+    tagsOn() && { label: 'Stop reason tags', width: '150px', text: r => tagText(r.tagIds) },
+    tagsOn() && withGroup && { label: 'Stop group tags', width: '150px', text: r => tagText(groups.find(g => g.name === r.group)?.tagIds) },
+    { label: 'Stations', text: r => formatList(sortStations(r.stations), S.STATIONS.length) },
+    arrowCol,
+  ].filter(Boolean);
+}
+function renderStopReasons() {
+  const reasons = S.getStopReasons();
+  if (views['stop-reasons'] === 'list') {
+    const cols = reasonCols(true);
+    $('#srTable').innerHTML = tableHtml(cols, reasons, r => `data-id="${r.id}"`);
+    $('#srTable').style.minWidth = minWidth(cols);
+    hydrateIcons($('#srTable'));
+    $$('#srTable tbody tr').forEach(tr => tr.addEventListener('click', () => openReasonDialog(Number(tr.dataset.id))));
+    renderFooter('stop-reasons', reasons.length);
+  } else {
+    const box = $('#srGroups');
+    box.innerHTML = groupPanelsHtml(S.getStopGroups(), {
+      openIds: srOpen, color: true, global: true,
+      count: g => reasons.filter(r => r.group === g.name).length,
+      cols: reasonCols(false), rows: g => reasons.filter(r => r.group === g.name),
+    });
+    wireGroupPanels(box, srOpen, openStopGroupDialog, openReasonDialog, renderStopReasons);
+  }
+}
+
+// ─── Page: Operators ───
+// Columns from the Teams prototype that stay: name, factories, operator
+// group, shift leader, stations, passcode (+ Tags).
+const opOpen = new Set();
+function operatorCols(withGroup) {
+  return [
+    { label: 'First name', width: '170px', bold: true, text: o => o.firstName },
+    { label: 'Last name', width: '170px', bold: true, text: o => o.lastName },
+    withGroup && { label: 'Factories', width: '110px', text: o => formatList(factoriesOf(o.stations), S.FACTORIES.length) },
+    withGroup && { label: 'Operator group', width: '150px', text: o => o.group || '-' },
+    { label: 'Shift leader', width: '110px', text: o => o.canLead ? 'Yes' : 'No' },
+    tagsOn() && { label: 'Tags', width: '170px', text: o => tagText(o.tagIds) },
+    { label: 'Stations', text: o => formatList(sortStations(o.stations), S.STATIONS.length) },
+    { label: 'Passcode', width: '100px', text: o => o.passcode ? 'Yes' : 'No' },
+    arrowCol,
+  ].filter(Boolean);
+}
+function renderOperators() {
+  const ops = S.getOperators();
+  if (views.operators === 'list') {
+    const cols = operatorCols(true);
+    $('#opTable').innerHTML = tableHtml(cols, ops, o => `data-id="${o.id}"`);
+    $('#opTable').style.minWidth = minWidth(cols);
+    hydrateIcons($('#opTable'));
+    $$('#opTable tbody tr').forEach(tr => tr.addEventListener('click', () => openOperatorDialog(Number(tr.dataset.id))));
+    renderFooter('operators', ops.length);
+  } else {
+    const box = $('#opGroups');
+    box.innerHTML = groupPanelsHtml(S.getOperatorGroups(), {
+      openIds: opOpen, color: false, global: false,
+      count: g => ops.filter(o => o.group === g.name).length,
+      cols: operatorCols(false), rows: g => ops.filter(o => o.group === g.name),
+    });
+    wireGroupPanels(box, opOpen, openOperatorGroupDialog, openOperatorDialog, renderOperators);
+  }
+}
+
+// ─── Routing ───
+// settings.html#tags | #stop-reasons | #operators. Tags is gated by the
+// feature flag, like the product's menu item and route guard.
+const PAGES = {
+  tags:           { el: '#pageTags',        title: () => 'Tags',                                                            render: renderTags },
+  'stop-reasons': { el: '#pageStopReasons', title: () => views['stop-reasons'] === 'groups' ? 'Stop groups' : 'Stop reasons', render: renderStopReasons },
+  operators:      { el: '#pageOperators',   title: () => views.operators === 'groups' ? 'Operator groups' : 'Operators',     render: renderOperators },
+};
+let page = null;
+
+function route() {
+  let key = location.hash.slice(1);
+  if (!PAGES[key] || (key === 'tags' && !tagsOn())) key = tagsOn() ? 'tags' : 'stop-reasons';
+  if (location.hash !== '#' + key) history.replaceState(null, '', '#' + key);
+  if (page !== key) { closeMenu(); closeAllModals(); }
+  page = key;
+  Object.entries(PAGES).forEach(([k, p]) => { $(p.el).hidden = k !== key; });
+  Chrome.setActive(key);
+  Chrome.setItemVisible('tags', tagsOn());
+  renderPage();
+}
+function renderPage() {
+  const p = PAGES[page];
+  const view = views[page];
+  if (view) {
+    $$(`${p.el} [data-view-body]`).forEach(b => { b.hidden = b.dataset.viewBody !== view; });
+    $$(`${p.el} .view-toggle__btn`).forEach(b => b.classList.toggle('is-active', b.dataset.view === view));
+    $(`${p.el} [data-title]`).textContent = p.title();
+  }
+  Chrome.setTitle(p.title());
+  document.title = `${p.title()} · Evocon Settings`;
+  p.render();
+}
+$$('.view-toggle').forEach(t => t.addEventListener('click', e => {
+  const btn = e.target.closest('.view-toggle__btn');
+  if (!btn) return;
+  views[t.dataset.toggle] = btn.dataset.view;
+  renderPage();
+}));
+window.addEventListener('hashchange', route);
+
+// ─── Dialog shell ───
+const modal = $('#modalEdit');
+let onSave = null, onDelete = null;
+
+// title, body html, save/delete handlers (no delete handler → no Delete button).
+function openDialog({ title, body, narrow, save, del }) {
+  closeMenu();
+  $('[data-slot="title"]', modal).textContent = title;
+  $('[data-slot="body"]', modal).innerHTML = body;
+  $('.modal', modal).classList.toggle('modal--narrow', !!narrow);
+  $('[data-slot="delete"]', modal).hidden = !del;
+  onSave = save; onDelete = del;
+  hydrateIcons(modal);
+  modal.classList.add('is-open');
+}
+function closeAllModals() { $$('.modal-overlay').forEach(m => m.classList.remove('is-open')); closeMenu(); }
+function closeTopModal() {
+  if ($('#modalConfirm').classList.contains('is-open')) $('#modalConfirm').classList.remove('is-open');
+  else closeAllModals();
+}
+$('[data-slot="save"]', modal).addEventListener('click', () => onSave && onSave());
+$('[data-slot="delete"]', modal).addEventListener('click', () => onDelete && onDelete());
+document.addEventListener('click', e => {
+  if (e.target.matches('.modal-overlay')) closeTopModal();
+  else if (e.target.closest('[data-close]')) closeTopModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if ($('#menu').classList.contains('is-open')) closeMenu(); else closeTopModal();
+});
+
+// Confirmation (useConfirmDialogStore): title "Confirmation", the question,
+// an optional detail line, and the action button (red Delete or green Save).
+function confirmDialog({ text, detail = '', label = 'Delete', danger = true, action }) {
+  const box = $('#modalConfirm');
+  $('[data-slot="text"]', box).textContent = text;
+  $('[data-slot="detail"]', box).textContent = detail;
+  $('[data-slot="detail"]', box).hidden = !detail;
+  const btn = $('[data-slot="confirm"]', box);
+  btn.className = `btn ${danger ? 'btn--danger-filled' : 'btn--primary'}`;
+  $('.btn__text', btn).textContent = label;
+  btn.onclick = () => { box.classList.remove('is-open'); action(); };
+  box.classList.add('is-open');
+}
+
+// "2 stop reasons, 1 stop group and 3 operators" from TagsStore.tagUsage();
+// Types with no items are left out. '' when nothing uses the tag.
+const USAGE_NOUNS = {
+  STOP_REASON: ['stop reason', 'stop reasons'], STOP_GROUP: ['stop group', 'stop groups'],
+  OPERATOR: ['operator', 'operators'], OPERATOR_GROUP: ['operator group', 'operator groups'],
+};
+function usageText(usage, types = Object.keys(USAGE_NOUNS)) {
+  const parts = types.filter(t => usage[t]?.length).map(t => {
+    const n = usage[t].length;
+    return `${n} ${USAGE_NOUNS[t][n === 1 ? 0 : 1]}`;
+  });
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : (parts[0] || '');
+}
+
+// ─── Fields ───
+// Filled input / select look from the Teams prototype. `disabled` fields are
+// the read-only parts of this prototype: only tags can be saved.
+function inputField({ id, value = '', placeholder, hint, max, disabled }) {
+  return `
+    <div class="field ${disabled ? 'is-disabled' : ''}" ${id ? `data-field="${id}"` : ''}>
+      <input class="field__input" ${id ? `id="${id}"` : ''} value="${esc(value)}" placeholder="${esc(placeholder)}"
+             ${max ? `maxlength="${max}"` : ''} ${disabled ? 'disabled' : ''}>
+      <div class="field__bottom">
+        <span class="field__hint" data-hint="${esc(hint)}">${esc(hint)}</span>
+        ${max ? `<span class="field__counter"><span data-count>${value.length}</span> / ${max}</span>` : ''}
+      </div>
+    </div>`;
+}
+// `note` (HTML) is an extra line under the hint, e.g. why a field is disabled.
+function selectField({ id, text, placeholder, hint, disabled, prefix = '', note = '' }) {
+  return `
+    <div class="field ${disabled ? 'is-disabled' : ''}" ${id ? `data-field="${id}"` : ''}>
+      <button type="button" class="field__select ${text ? '' : 'is-empty'}" ${id ? `id="${id}"` : ''} ${disabled ? 'disabled' : ''}>
+        ${prefix}<span class="field__select-text">${esc(text || placeholder)}</span>
+        <span class="field__select-caret" data-icn="menu-down"></span>
+      </button>
+      <div class="field__bottom"><span class="field__hint" data-hint="${esc(hint)}">${esc(hint)}</span></div>
+      ${note ? `<div class="field__note">${note}</div>` : ''}
+    </div>`;
+}
+// Field error: red underline, and the hint shows the message (null clears it).
+function setFieldError(id, message) {
+  const field = $(`[data-field="${id}"]`);
+  const hint = $('.field__hint', field);
+  field.classList.toggle('is-error', !!message);
+  hint.textContent = message || hint.dataset.hint;
+}
+const switchRow = ({ on, label, hint }) => `
+  <div class="switch-row">
+    <button type="button" class="op-switch ${on ? 'is-on' : ''}" role="switch" aria-checked="${on}" disabled><span class="op-switch-knob"></span></button>
+    <div><div class="switch-row__label">${esc(label)}</div>${hint ? `<div class="switch-row__hint">${esc(hint)}</div>` : ''}</div>
+  </div>`;
+const checkboxMarker = on => `<span class="dropdown__row-cbicon" data-icn="${on ? 'checkbox-marked' : 'checkbox-blank'}" ${on ? 'data-tint="green"' : ''}></span>`;
+
+// Live counters on text inputs inside a dialog.
+function wireCounters(root) {
+  $$('.field__input', root).forEach(inp => inp.addEventListener('input', () => {
+    const c = inp.closest('.field').querySelector('[data-count]');
+    if (c) c.textContent = inp.value.length;
+    if (inp.id) setFieldError(inp.id, null);
+  }));
+}
+
+// ─── Multi-select popover ───
+// items: [{ value, label, isNew }]; `sel` is the draft array, changed in place.
+// `search`: a "Search" box above the rows (the product shows one on lists of
+// more than 5 items).
+let menuAnchor = null;
+function openMultiMenu(trigger, items, sel, onChange, { search = false } = {}) {
+  const menu = $('#menu');
+  if (menuAnchor === trigger) { closeMenu(); return; }
+  closeMenu();
+  menu.innerHTML = `
+    ${search ? `<label class="dropdown__search"><span data-icn="search" data-size="20"></span>
+      <input type="text" placeholder="Search" aria-label="Search"></label>` : ''}
+    <div class="dropdown__rows"></div>`;
+  const box = $('.dropdown__rows', menu);
+  const input = $('.dropdown__search input', menu);
+  const draw = () => {
+    const q = (input?.value || '').trim().toLocaleLowerCase();
+    const shown = items.map((it, i) => ({ it, i })).filter(({ it }) => it.label.toLocaleLowerCase().includes(q));
+    box.innerHTML = shown.length ? shown.map(({ it, i }) => `
+      <div class="dropdown__row ${sel.includes(it.value) ? 'is-checked' : ''}" data-i="${i}">
+        ${checkboxMarker(sel.includes(it.value))}
+        <span class="dropdown__row-label">${esc(it.label)}</span>
+        ${it.isNew ? '<span class="dropdown__row-pill" title="New in this prototype">New</span>' : ''}
+      </div>`).join('') : '<div class="dropdown__empty">No search results</div>';
+    hydrateIcons(box);
+  };
+  hydrateIcons(menu);
+  draw();
+  if (input) input.addEventListener('input', draw);
+  menu.onclick = e => {
+    e.stopPropagation();
+    const row = e.target.closest('.dropdown__row');
+    if (!row) return;
+    const v = items[Number(row.dataset.i)].value;
+    const at = sel.indexOf(v);
+    if (at >= 0) sel.splice(at, 1); else sel.push(v);
+    draw();
+    onChange();
+  };
+  menuAnchor = trigger;
+  menu.classList.add('is-open');
+  positionMenu();
+  if (input) input.focus();
+}
+// Below the field, or above it when the list does not fit below.
+function positionMenu() {
+  if (!menuAnchor) return;
+  const r = menuAnchor.getBoundingClientRect();
+  const menu = $('#menu');
+  menu.style.left = r.left + 'px';
+  menu.style.width = Math.max(r.width, 240) + 'px';
+  const below = innerHeight - r.bottom - 12;
+  const up = menu.offsetHeight > below && r.top > below;
+  menu.style.top = (up ? Math.max(8, r.top - 4 - menu.offsetHeight) : r.bottom + 4) + 'px';
+}
+function closeMenu() { $('#menu').classList.remove('is-open'); menuAnchor = null; }
+document.addEventListener('click', e => { if (menuAnchor && !e.target.closest('#menu') && !menuAnchor.contains(e.target)) closeMenu(); });
+window.addEventListener('scroll', positionMenu, true);
+window.addEventListener('resize', closeMenu);
+
+// Tag picker: "Tags (Optional)", items = tags whose Type includes `type`.
+// Disabled when there are no such tags, as in the product; a note says why
+// and links to Settings → Tags.
+function tagField(type, draft) {
+  const opts = S.tagsOfType(type);
+  const note = opts.length ? '' :
+    `No tags for ${esc(typeLabel(type).toLocaleLowerCase())}. Create them in <a href="#tags">Settings → Tags</a>.`;
+  return {
+    field: selectField({
+      id: 'fldTags', text: shortList(S.tagNames(draft), 0), placeholder: 'Tags', hint: 'Tags (Optional)', disabled: !opts.length, note,
+    }),
+    get row() { return `<div class="field-row field-row--single">${this.field}</div>`; },
+    wire() {
+      const trig = $('#fldTags');
+      if (!trig) return;
+      const items = opts.map(t => ({ value: t.id, label: t.name }));
+      trig.addEventListener('click', e => {
+        e.stopPropagation();
+        openMultiMenu(trig, items, draft, () => {
+          const text = shortList(S.tagNames(draft), 0);
+          trig.classList.toggle('is-empty', !text);
+          $('.field__select-text', trig).textContent = text || 'Tags';
+        }, { search: items.length > 5 });
+      });
+    },
+  };
+}
+
+// ─── Snackbar (GlobalNotification: top right, 5 s; here below the page
+// header buttons so it never covers "+ Tag") ───
+function showSnack(message, type = 'success') {
+  let host = $('.snackbar-host');
+  if (!host) { host = document.createElement('div'); host.className = 'snackbar-host'; document.body.appendChild(host); }
+  const el = document.createElement('div');
+  el.className = `snackbar snackbar--${type}`;
+  el.innerHTML = `
+    <span data-icn="${type === 'success' ? 'check-circle' : 'alert-circle'}" data-tint="${type === 'success' ? 'green' : 'red'}"></span>
+    <span class="snackbar__text">${esc(message)}</span>
+    <button class="snackbar__close" aria-label="Close"><span data-icn="close-circle"></span></button>`;
+  host.appendChild(el);
+  hydrateIcons(el);
+  const dismiss = () => el.remove();
+  $('.snackbar__close', el).addEventListener('click', dismiss);
+  setTimeout(dismiss, 5000);
+}
+
+// ─── Tag dialog (SettingsTagEditForm) ───
+// Fields: Tag (200), Alias (15), Type. Operators and Operator groups are the
+// two Types this mission adds; a "New" pill marks them in this prototype.
+function openTagDialog(id) {
+  const tag = id ? S.tagById(id) : null;
+  const types = [...(tag?.types || [])];
+  const typeItems = S.TAG_TYPES.map(t => ({ value: t.key, label: t.label, isNew: t.isNew }));
+  const typeText = () => shortList(types.map(typeLabel), S.TAG_TYPES.length);
+  openDialog({
+    title: tag ? tag.name : 'New: Tag',
+    narrow: true,
+    body: `
+      <div class="field-row">${inputField({ id: 'tagName', value: tag?.name, placeholder: 'Tag', hint: 'Tag', max: 200 })}</div>
+      <div class="field-row">${inputField({ id: 'tagAlias', value: tag?.alias, placeholder: 'Alias', hint: 'Alias', max: 15 })}</div>
+      <div class="field-row">${selectField({ id: 'tagTypes', text: typeText(), placeholder: 'Type', hint: 'Type' })}</div>`,
+    save() {
+      const name = $('#tagName').value.trim();
+      const alias = $('#tagAlias').value.trim();
+      // Required fields: the hint turns into the error, as in the product.
+      // Names are unique, ignoring case and spaces at either end.
+      const nameError = !name ? 'Tag' : S.isNameTaken(name, tag?.id) ? 'Tag with the same name already exists' : null;
+      setFieldError('tagName', nameError);
+      setFieldError('tagAlias', alias ? null : 'Alias');
+      setFieldError('tagTypes', types.length ? null : 'Select at least one type');
+      if (nameError || !alias || !types.length) return;
+      const write = () => {
+        S.saveTag({ id: tag?.id, name, alias, types: [...types] });
+        closeAllModals();
+        showSnack(`${name} ${tag ? 'updated' : 'added'}`);
+      };
+      // Removing a Type takes the tag off every item of that Type: say so first.
+      const lost = tag ? usageText(S.tagUsage(tag.id), tag.types.filter(t => !types.includes(t))) : '';
+      if (lost) confirmDialog({ text: `${name} will be removed from ${lost}.`, label: 'Save', danger: false, action: write });
+      else write();
+    },
+    del: tag && (() => {
+      const used = usageText(S.tagUsage(tag.id));
+      confirmDialog({
+        text: `Are you sure you want to delete ${tag.name}?`,
+        detail: `${used ? `Used on ${used}. ` : ''}Saved reports that filter on this tag will show it as Deleted and find no stops.`,
+        action: () => {
+          S.deleteTag(tag.id);
+          closeAllModals();
+          showSnack(`${tag.name} deleted`);
+        },
+      });
+    }),
+  });
+  wireCounters(modal);
+  const trig = $('#tagTypes');
+  trig.addEventListener('click', e => {
+    e.stopPropagation();
+    openMultiMenu(trig, typeItems, types, () => {
+      trig.classList.toggle('is-empty', !types.length);
+      $('.field__select-text', trig).textContent = typeText() || 'Type';
+      if (types.length) setFieldError('tagTypes', null);
+    });
+  });
+  if (!tag) $('#tagName').focus();
+}
+$('#btnNewTag').addEventListener('click', () => openTagDialog(null));
+
+// ─── Stop reason dialog (SettingsStopReasonEdit) ───
+// Only "Tags (Optional)" is live; Reports joins on names, so the rest is shown
+// as in the product but disabled.
+function openReasonDialog(id) {
+  const r = S.getStopReasons().find(x => x.id === id);
+  const g = S.getStopGroups().find(x => x.name === r.group);
+  const draft = [...r.tagIds];
+  const tags = tagsOn() ? tagField('STOP_REASON', draft) : null;
+  const unplanned = r.type === 'Unplanned';
+  const advanced = [
+    ['Include in OEE calculation', r.includeInOee, 'When enabled, this stop reason will reduce OEE.'],
+    ['Include in technical availability', false, 'When enabled this reason will be used to calculate technical availability.'],
+    ['Require extra note from operators', false, 'Require extra note only if stop exceeds set time.'],
+    ['Require location from operators', false, 'When enabled operators must choose location when using this reason.'],
+    ['Allow joining of multiple stops', false, 'Joined stops count as one in statistics.'],
+    ['Maximum allowed duration', false, ''],
+  ];
+  openDialog({
+    title: r.name,
+    body: `
+      <div class="field-row">${inputField({ value: r.name, placeholder: 'Name', hint: 'Stop name', max: 200, disabled: true })}</div>
+      <div class="field-row">
+        ${selectField({ text: r.group, hint: 'Group', disabled: true, prefix: `<span class="swatch swatch--16" style="background:${esc(g?.color)}"></span>` })}
+        ${selectField({ text: unplanned ? 'Unplanned' : 'Planned', hint: 'Stop type', disabled: true })}
+      </div>
+      <div class="field-row">
+        ${selectField({ text: shortList(sortStations(r.stations), S.STATIONS.length), placeholder: 'Stations', hint: 'Stations', disabled: true })}
+        ${tags ? tags.field : '<div class="field"></div>'}
+      </div>
+      <div class="dialog-links">
+        <button class="btn btn--tertiary" disabled>
+          <span class="btn__icon" data-icn="open-in-new" data-size="18"></span><span class="btn__text">Machine locations</span>
+        </button>
+      </div>
+      <div class="advanced">
+        <div class="advanced__title">Advanced settings</div>
+        ${advanced.map(([label, on, tip]) => `
+          <div class="advanced__row">
+            ${checkboxMarker(on)}<span class="advanced__label">${esc(label)}</span>
+            ${tip ? `<span class="advanced__info" data-icn="information" data-size="18" title="${esc(tip)}"></span>` : ''}
+          </div>`).join('')}
+      </div>`,
+    save() {
+      S.saveItem('stopReasons', { id: r.id, tagIds: [...draft] });
+      closeAllModals();
+      showSnack(`${r.name} updated`);
+    },
+  });
+  tags && tags.wire();
+}
+
+// ─── Stop group dialog (SettingsGroupEdit, comment fields) ───
+function openStopGroupDialog(id) {
+  const g = S.getStopGroups().find(x => x.id === id);
+  const draft = [...g.tagIds];
+  const tags = tagsOn() ? tagField('STOP_GROUP', draft) : null;
+  openDialog({
+    title: `Edit: ${g.name}`,
+    body: `
+      <div class="field-row">
+        ${inputField({ value: g.name, placeholder: 'Group name', hint: 'Group name', max: 100, disabled: true })}
+        ${selectField({ text: ' ', hint: 'Group color in reports', disabled: true, prefix: `<span class="swatch swatch--24" style="background:${esc(g.color)}"></span>` })}
+      </div>
+      ${tags ? tags.row : ''}
+      ${switchRow({ on: true, label: 'Global group', hint: 'Enable if this group should be available in all factories.' })}`,
+    save() {
+      S.saveItem('stopGroups', { id: g.id, tagIds: [...draft] });
+      closeAllModals();
+      showSnack(`${g.name} updated`);
+    },
+  });
+  tags && tags.wire();
+}
+
+// ─── Operator dialog (SettingsOperatorsEdit + Teams prototype fields) ───
+function openOperatorDialog(id) {
+  const o = S.getOperators().find(x => x.id === id);
+  const draft = [...o.tagIds];
+  const tags = tagsOn() ? tagField('OPERATOR', draft) : null;
+  openDialog({
+    title: `${o.firstName} ${o.lastName}`,
+    body: `
+      <div class="field-row">
+        ${inputField({ value: o.firstName, placeholder: 'First name', hint: 'First name', max: 200, disabled: true })}
+        ${inputField({ value: o.lastName, placeholder: 'Last name', hint: 'Last name', max: 100, disabled: true })}
+      </div>
+      <div class="field-row">
+        ${selectField({ text: o.group, placeholder: 'Operator group', hint: 'Operator group', disabled: true })}
+        ${selectField({ text: shortList(sortStations(o.stations), S.STATIONS.length), placeholder: 'Stations', hint: 'Stations', disabled: true })}
+      </div>
+      ${tags ? tags.row : ''}
+      ${switchRow({ on: !!o.canLead, label: 'Allow as shift leader', hint: 'Operator can be set as shift leader in Shift View' })}
+      <div class="section-title">
+        <div class="section-title__spacer"></div>
+        <div class="section-title__text">Checklists authentication</div>
+        <span class="section-title__icon" data-icn="information" data-size="16"></span>
+      </div>
+      <div class="passcode-card">
+        <div class="passcode-card__icon" data-icn="key"></div>
+        <div class="passcode-card__text">${o.passcode ? 'Passcode' : 'No passcode created'}</div>
+        <button class="btn btn--secondary" disabled><span class="btn__text">${o.passcode ? 'Regenerate' : 'Generate'}</span></button>
+      </div>`,
+    save() {
+      S.saveItem('operators', { id: o.id, tagIds: [...draft] });
+      closeAllModals();
+      showSnack(`${o.firstName} ${o.lastName} updated`);
+    },
+  });
+  tags && tags.wire();
+}
+
+// ─── Operator group dialog (Teams prototype; SettingsGroupEdit title) ───
+function openOperatorGroupDialog(id) {
+  const g = S.getOperatorGroups().find(x => x.id === id);
+  const draft = [...g.tagIds];
+  const tags = tagsOn() ? tagField('OPERATOR_GROUP', draft) : null;
+  openDialog({
+    title: `Edit: ${g.name}`,
+    narrow: true,
+    body: `
+      <div class="field-row">
+        ${inputField({ value: g.name, placeholder: 'Group name', hint: 'Group name', max: 100, disabled: true })}
+        ${selectField({ text: shortList(g.factories || [], S.FACTORIES.length), placeholder: 'Factories', hint: 'Factories', disabled: true })}
+      </div>
+      ${tags ? tags.row : ''}`,
+    save() {
+      S.saveItem('operatorGroups', { id: g.id, tagIds: [...draft] });
+      closeAllModals();
+      showSnack(`${g.name} updated`);
+    },
+  });
+  tags && tags.wire();
+}
+
+// ─── Store changes ───
+// Saves here, the Tags feature switch (proto panel, H) and saves in another
+// tab all arrive as `tags:changed`. Turning tags off closes any open dialog,
+// since its Tags field is gone.
+let wasOn = tagsOn();
+function onStoreChange() {
+  if (wasOn !== tagsOn()) { wasOn = tagsOn(); closeAllModals(); }
+  route();
+}
+window.addEventListener('tags:changed', onStoreChange);
+window.addEventListener('proto:tagsFeature', onStoreChange);
+
+// For scripted checks (tests/shot.mjs steps).
+window.__settingsProto = { openTagDialog, openReasonDialog, openStopGroupDialog, openOperatorDialog, openOperatorGroupDialog, views };
+
+route();
+</script>
+</body>
+</html>
