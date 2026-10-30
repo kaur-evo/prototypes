@@ -28,11 +28,6 @@
       label: 'Downtime table shows the "Tags" column',
       defOn: true,
     },
-    {
-      key: 'protoTagPills', global: '__protoTagPills', event: 'proto:tagPills',
-      label: 'Tags column shows tags as pills. Click a pill to filter by that tag',
-      defOn: true,
-    },
   ];
 
   // Boolean options stored as 'on' / 'off'.

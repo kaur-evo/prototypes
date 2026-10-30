@@ -392,34 +392,6 @@ const DT_TAGS_COL = { key: 'tags', label: 'Tags', width: 220,
   vals: s => stopTagIds(s).map(id => TagsStore.tagById(id)?.name).filter(Boolean) };
 function showTagsInRows() { return tagsFeatureOn() && currentXAxis !== 'Tags'; }
 
-// Prototype option "tag pills" (window.__protoTagPills): the Tags column shows
-// each tag as a pill instead of comma-joined text.
-function tagPillsOn() { return window.__protoTagPills !== 'off'; }
-function tagPillsHtml(txt) {
-  const on = activeFilters.includes('tags') && !tagsFilter.inverted ? new Set(tagsFilter.tagIds) : new Set();
-  return txt.split(', ').map(name => {
-    const tag = TagsStore.getTags().find(t => t.name === name);
-    if (!tag) return htmlEsc(name);
-    return `<span class="dt-tag-pill${on.has(tag.id) ? ' is-on' : ''}" data-tag-id="${tag.id}">${htmlEsc(name)}</span>`;
-  }).join('');
-}
-// A pill click: no Tags filter yet, or an inverted one, starts "Tags: <tag>";
-// otherwise the tag joins the selection, or leaves it when it is already in.
-// Adding a tag also switches the X-axis to Tags, so the picked tags become the bars.
-function toggleTagFromTable(id) {
-  const adding = !activeFilters.includes('tags') || tagsFilter.inverted || !tagsFilter.tagIds.includes(id);
-  if (!activeFilters.includes('tags') || tagsFilter.inverted) {
-    tagsFilter = { tagIds: [id], noTag: false, inverted: false };
-  } else if (!adding) {
-    tagsFilter = { ...tagsFilter, tagIds: tagsFilter.tagIds.filter(t => t !== id) };
-  } else {
-    tagsFilter = { ...tagsFilter, tagIds: [...tagsFilter.tagIds, id] };
-  }
-  if (!activeFilters.includes('tags')) activeFilters.push('tags');
-  closeFilterMenus(); renderActiveChips(); applyFilters();
-  if (adding && currentXAxis !== 'Tags') selectXAxis('Tags');
-}
-
 function plannedLabel() {
   if (!TIME_AXES.has(currentXAxis) && (DT_AXES[currentXAxis]?.planned === 'total' || !DT_AXES[currentXAxis])) return 'Planned time (Total)';
   return `Planned time (${axisSingular(currentXAxis)})`;
@@ -533,20 +505,13 @@ function renderTable() {
   const td = (txt, col, isTotal, raw) => {
     const ff = col.align === 'right' ? "'Roboto Mono',monospace" : "'Open Sans',sans-serif";
     const w = col.kind === 'text' ? `width:${col.width}px;min-width:${col.width}px;max-width:${col.width + 120}px;` : 'white-space:nowrap;';
-    const pills = col.key === 'tags' && !isTotal && txt !== '-' && tagPillsOn();
-    let html = txt === '-' ? '<span style="color:#9e9e9e;">-</span>' : pills ? tagPillsHtml(txt) : htmlEsc(txt);
+    let html = txt === '-' ? '<span style="color:#9e9e9e;">-</span>' : htmlEsc(txt);
     if (col.hasNote && !isTotal && raw > 0) html += `&nbsp;${ICON_OPEN}`;
     return `<td style="font-family:${ff};font-size:14px;${isTotal ? 'font-weight:600;' : ''}color:#212121;text-align:${col.align};vertical-align:middle;${w}padding:4px 16px 4px 8px;">`
-      + (pills
-        // Pills wrap onto more lines so every tag stays clickable.
-        ? `<div class="dt-tag-pills">${html}</div></td>`
-        : `<div data-txt-row="1" style="line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${html}</div></td>`);
+      + `<div data-txt-row="1" style="line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${html}</div></td>`;
   };
-  // On the Tags axis with pills on, each row's tag is a pill too (green: in the filter).
-  const firstHtml = (txt) => currentXAxis === 'Tags' && tagPillsOn() && txt !== 'Total' && txt !== TAG_NONE_LABEL
-    ? tagPillsHtml(txt) : htmlEsc(txt);
   const firstTd = (txt, cls) =>
-    `<td class="dt-fixed ${cls || ''}" style="font-family:'Open Sans',sans-serif;font-size:14px;font-weight:600;color:#212121;vertical-align:middle;padding:4px 16px;"><div data-txt-row="main" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${firstHtml(txt)}</div></td>`;
+    `<td class="dt-fixed ${cls || ''}" style="font-family:'Open Sans',sans-serif;font-size:14px;font-weight:600;color:#212121;vertical-align:middle;padding:4px 16px;"><div data-txt-row="main" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${htmlEsc(txt)}</div></td>`;
 
   let body = '';
   page.forEach((r, i) => {
@@ -588,11 +553,6 @@ function initTableEvents() {
     tipEl.style.display = 'none';
   });
   scrollEl.addEventListener('mouseleave', () => tipEl.style.display = 'none');
-  // A tag pill adds its tag to the Tags filter (or takes it out again).
-  scrollEl.addEventListener('click', function(e) {
-    const pill = e.target.closest('.dt-tag-pill');
-    if (pill) { tipEl.style.display = 'none'; toggleTagFromTable(+pill.dataset.tagId); }
-  });
 
   // First column resize.
   let _resizing = false, _resizeStartX = 0, _resizeStartW = 0;
@@ -1630,7 +1590,6 @@ function onTagsChanged() {
 window.addEventListener('tags:changed', onTagsChanged);
 window.addEventListener('proto:tagsFeature', onTagsChanged);
 window.addEventListener('proto:tagColumns', () => { if (currentReport === 'downtime') drawDowntime(); });
-window.addEventListener('proto:tagPills', () => { if (currentReport === 'downtime') drawDowntime(); });
 
 // ── Test hook (spec: contract between builder and tester) ──
 window.__tagsProto = {
