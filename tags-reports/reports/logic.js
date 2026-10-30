@@ -388,7 +388,9 @@ function axisSingular(label) {
 }
 
 // ── Table columns (spec §7) ──
-const DT_TAGS_COL = { key: 'tags', label: 'Tags', width: 220,
+// A row whose stops carry no tag reads "Unknown", as the Tags bar does.
+const TAG_NONE_LABEL_COL = 'Unknown';
+const DT_TAGS_COL = { key: 'tags', label: 'Tags', width: 220, empty: TAG_NONE_LABEL_COL,
   vals: s => stopTagIds(s).map(id => TagsStore.tagById(id)?.name).filter(Boolean) };
 function showTagsInRows() { return tagsFeatureOn() && currentXAxis !== 'Tags'; }
 
@@ -1413,10 +1415,10 @@ const applyOperatorFilters = applyFilters;
 // (stopTagIds); the filter, the X-axis, the split and the column all read it.
 //
 // Filter: "+ FILTER → Tags", the selection list over every tag of the four
-// types, names only, "No tag" pinned on top. Inversion as the product
+// types, names only, "Unknown" (no tag) pinned on top. Inversion as the product
 // (more than half ticked → stored as the unticked ones, inverted).
 // Meaning, as one rule for TagsStore.evaluate over the four FILTER_FIELDS:
-//   S = OR of { is S };  No tag = AND of { hasNone };  plain = S OR No tag;
+//   S = OR of { is S };  Unknown = AND of { hasNone };  plain = S OR Unknown;
 //   inverted = its negation. A deleted tag stays selected and matches nothing.
 const TAG_NONE = 'none';
 const TAGS_FILTER_KEY = 'evocon_reports_tags_filter';
@@ -1457,9 +1459,10 @@ function tagsFilterPredicate() {
   return s => TagsStore.evaluate(rule, stopSubject(s));
 }
 
-// X-axis / Split by "Tags": one bar per tag plus "No tag"; a stop counts in
+// X-axis / Split by "Tags": one bar per tag plus "Unknown" (no tag); a stop counts in
 // every tag it carries. A Tags filter limits the bars to its selection.
-const TAG_NONE_LABEL = 'No tag';
+// Evocon's word for a missing value, as with operators.
+const TAG_NONE_LABEL = 'Unknown';
 function tagBarAllowed(id) {
   if (!tagsFilterActive()) return true;
   const inS = tagsFilter.tagIds.includes(id);
@@ -1493,7 +1496,7 @@ FILTER_DIMS.tags = {
   icon: icn('tag', 20),
   values: () => [TAG_NONE, ...tagOptions()],
   pinned: () => [TAG_NONE],
-  text: (v) => v === TAG_NONE ? 'No tag' : (TagsStore.tagById(+v)?.name || 'Deleted'),
+  text: (v) => v === TAG_NONE ? TAG_NONE_LABEL : (TagsStore.tagById(+v)?.name || 'Deleted'),
   cls: (v) => v === TAG_NONE ? '' : ({ ok: '', deleted: ' is-deleted', wrongType: ' is-unavailable' })[tagState(+v)],
   draft: () => {
     const held = new Set([...tagsFilter.tagIds.map(String), ...(tagsFilter.noTag ? [TAG_NONE] : [])]);
@@ -1511,11 +1514,11 @@ FILTER_DIMS.tags = {
     tagsFilter = { tagIds: held.filter(v => v !== TAG_NONE).map(Number), noTag: held.includes(TAG_NONE), inverted };
   },
   // Chip value, per the Figma filter bar (a deliberate new pattern):
-  // All · Cleaning · Cleaning + 2 · ≠ Cleaning + 1. "No tag" first when selected.
+  // All · Cleaning · Cleaning + 2 · ≠ Cleaning + 1. "Unknown" first when selected.
   chipText: () => {
     const { tagIds, noTag, inverted } = tagsFilter;
     const names = TagsStore.tagNames(tagIds, { withDeleted: true }).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
-    const held = [...(noTag ? ['No tag'] : []), ...names];
+    const held = [...(noTag ? [TAG_NONE_LABEL] : []), ...names];
     if (!held.length) return 'All';
     return (inverted ? '≠ ' : '') + held[0] + (held.length > 1 ? ` + ${held.length - 1}` : '');
   },
