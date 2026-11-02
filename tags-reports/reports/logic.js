@@ -289,8 +289,8 @@ function updateFilterBtn() {
   if (!rangeStart) return;
   const btn   = document.getElementById('date-btn');
   const fmt = d => fmtDMslashM(d);
-  const label = PRESET_LABELS[currentPreset]
-    || (rangeEnd && !sameDay(rangeStart, rangeEnd) ? `${fmt(rangeStart)} – ${fmt(rangeEnd)}` : fmt(rangeStart));
+  // A custom range, as the product shows it: "dd.mm.yyyy - dd.mm.yyyy".
+  const label = PRESET_LABELS[currentPreset] || `${fmt(rangeStart)} - ${fmt(rangeEnd || rangeStart)}`;
   // Live: "‹ Last 7 days ›" — chevrons step the period back and forward.
   btn.innerHTML = icn('chevLeft', 18, '#616161') + `<span class="chip-label">${label}</span>` + icn('chevRight', 18, '#616161');
 }
@@ -406,7 +406,7 @@ function dtColumnsAll() {
     ...text.map(c => ({ ...c, kind: 'text', align: 'left' })),
     ...DT_NUM_COLS.map(c => ({ ...c, kind: c.type, align: 'right', label: c.planned ? plannedLabel() : c.label })),
   ].filter(c => c.label !== currentXAxis);
-  return [{ key: 'x', label: currentXAxis, kind: 'first', align: 'left' }, ...cols];
+  return [{ key: 'x', label: currentXAxis === START_TIME ? 'Time' : currentXAxis, kind: 'first', align: 'left' }, ...cols];
 }
 function dtColumns() { return dtColumnsAll().filter(c => c.kind === 'first' || !dtHiddenCols.has(c.key)); }
 function dtColVisible(key) { return dtColumns().some(c => c.key === key); }
@@ -442,7 +442,7 @@ function dtTotalCellText(t, col) {
 
 // ── Sorting: a header click sorts descending, a second ascending; the chart follows ──
 function dtSortState() {
-  return dtSort || (TIME_AXES.has(currentXAxis) ? { key: 'x', dir: 'asc' } : { key: 'durSec', dir: 'desc' });
+  return dtSort || (TIME_AXES.has(currentXAxis) || currentXAxis === START_TIME ? { key: 'x', dir: 'asc' } : { key: 'durSec', dir: 'desc' });
 }
 function dtSortRows(rows) {
   const st = dtSortState();
@@ -512,13 +512,14 @@ function renderTable() {
     return `<td style="font-family:${ff};font-size:14px;${isTotal ? 'font-weight:600;' : ''}color:#212121;text-align:${col.align};vertical-align:middle;${w}padding:4px 16px 4px 8px;">`
       + `<div data-txt-row="1" style="line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${html}</div></td>`;
   };
-  const firstTd = (txt, cls) =>
-    `<td class="dt-fixed ${cls || ''}" style="font-family:'Open Sans',sans-serif;font-size:14px;font-weight:600;color:#212121;vertical-align:middle;padding:4px 16px;"><div data-txt-row="main" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${htmlEsc(txt)}</div></td>`;
+  const firstTd = (txt, cls, attr) =>
+    `<td class="dt-fixed ${cls || ''}" ${attr || ''} style="font-family:'Open Sans',sans-serif;font-size:14px;font-weight:600;color:#212121;vertical-align:middle;padding:4px 16px;"><div data-txt-row="main" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${htmlEsc(txt)}</div></td>`;
 
   let body = '';
   page.forEach((r, i) => {
     body += `<tr class="${(start + i) % 2 === 0 ? 'dt-row-even' : 'dt-row-odd'}" style="height:48px;">`;
-    cols.forEach(col => { body += col.kind === 'first' ? firstTd(r.name) : td(dtCellText(r, col), col, false, r[col.key]); });
+    const drill = dtDrillable(r) ? ['dt-drill', `data-drill="${start + i}"`] : [];
+    cols.forEach(col => { body += col.kind === 'first' ? firstTd(r.name, ...drill) : td(dtCellText(r, col), col, false, r[col.key]); });
     body += '</tr>';
   });
   if (!dtTotalHidden() && rows.length) {
@@ -527,7 +528,10 @@ function renderTable() {
     cols.forEach(col => { body += col.kind === 'first' ? firstTd('Total') : td(dtTotalCellText(t, col), col, true); });
     body += '</tr>';
   }
-  document.getElementById('dt-body').innerHTML = body;
+  const tbody = document.getElementById('dt-body');
+  tbody.innerHTML = body;
+  // The bold first cell drills down, as the bar does (spec §8b).
+  tbody.onclick = (e) => { const c = e.target.closest('td[data-drill]'); if (c) dtDrill(_dtData[+c.dataset.drill]); };
 
   // Pager, as live: "1-18 / 18".
   document.getElementById('dt-page-info').textContent = `${rows.length ? start + 1 : 0}-${end} / ${rows.length}`;
@@ -634,7 +638,8 @@ function dtGroupSegs(stops) {
     .map(g => ({ group: g, stops: by.get(g), ...dtSums(by.get(g)) }));
 }
 function dtBars(rows, split) {
-  if (!split) return rows.map(r => ({ x: r.name, split: null, row: r, stops: r.stops, ...dtSums(r.stops), plannedSec: r.plannedSec, groups: dtGroupSegs(r.stops) }));
+  const xOf = (r) => (currentXAxis === START_TIME ? r.key : r.name);   // Start time: the stop id
+  if (!split) return rows.map(r => ({ x: xOf(r), split: null, row: r, stops: r.stops, ...dtSums(r.stops), plannedSec: r.plannedSec, groups: dtGroupSegs(r.stops) }));
   const dim = DT_AXES[split];
   const bars = [];
   rows.forEach(r => {
@@ -642,7 +647,7 @@ function dtBars(rows, split) {
     r.stops.forEach(s => dim.keys(s).forEach(v => (by.get(v) || by.set(v, []).get(v)).push(s)));
     sortValues([...by.keys()]).forEach(v => {
       const st = by.get(v);
-      bars.push({ x: r.name, split: v, row: r, stops: st, ...dtSums(st), plannedSec: r.plannedSec, groups: dtGroupSegs(st) });
+      bars.push({ x: xOf(r), split: v, row: r, stops: st, ...dtSums(st), plannedSec: r.plannedSec, groups: dtGroupSegs(st) });
     });
   });
   return bars;
@@ -729,13 +734,16 @@ function drawDtChart(rows) {
     if (last && last.x === sl.b.x) last.slots.push(sl); else clusters.push({ x: sl.b.x, row: sl.b.row, slots: [sl] });
   });
   const tooltipEl = document.getElementById('chart-tooltip');
+  const drillable = dtDrillable();
+  const startTime = currentXAxis === START_TIME;
   clusters.forEach(c => {
     const x0 = c.slots[0].pos * unit, x1 = (c.slots[c.slots.length - 1].pos + 1) * unit;
     c.cx = (x0 + x1) / 2;
     c.bg = chart.append('rect').attr('class', 'col-bg').attr('x', x0 - (split ? unit * GAP / 2 : 0)).attr('y', 0)
       .attr('width', x1 - x0 + (split ? unit * GAP : 0)).attr('height', height).attr('fill', 'transparent')
       .on('mousemove', (event) => { c.bg.attr('fill', 'rgba(46,204,113,0.08)'); dtTooltip(event, c.row, null, null); })
-      .on('mouseleave', () => { c.bg.attr('fill', 'transparent'); tooltipEl.style.display = 'none'; });
+      .on('mouseleave', () => { c.bg.attr('fill', 'transparent'); tooltipEl.style.display = 'none'; })
+      .on('click', () => dtDrill(c.row)).style('cursor', drillable ? 'pointer' : null);
   });
 
   // Bars, stacked by stop group bottom-up.
@@ -744,7 +752,8 @@ function drawDtChart(rows) {
     let acc = 0;
     b.groups.forEach((g, gi) => {
       const y0 = y(acc), y1 = y(acc + g.val);
-      chart.append('rect').attr('class', 'seg-main')
+      chart.append('rect').attr('class', 'seg-main').attr('data-x', b.x).attr('data-group', g.group)
+        .style('cursor', drillable ? 'pointer' : null).on('click', () => dtDrill(b.row))
         .attr('x', bx).attr('width', bw).attr('y', y1).attr('height', Math.max(0, y0 - y1))
         .attr('fill', color(g.group)).attr('rx', gi === b.groups.length - 1 ? 2 : 0)
         .on('mousemove', (event) => {
@@ -767,11 +776,19 @@ function drawDtChart(rows) {
       label(chart.append('text').attr('transform', `translate(${cx - 2},${y(sl.b.val) - 6}) rotate(-45)`)
         .attr('class', 'count-label').style('pointer-events', 'none')).text(fmtInt(sl.b.count));
     });
-    // X labels under the bars.
+    // X labels under the bars. Start time: "HH:MM", the stop reason under it
+    // (one line when the bars are too close for two).
+    const twoLines = unit * Math.sin(38 * Math.PI / 180) >= 30;
     slots.forEach(sl => {
-      const cx = slotX(sl) + bw / 2;
-      label(chart.append('text').attr('transform', `translate(${cx + 4},${height + 12}) rotate(-38)`).attr('text-anchor', 'end'))
-        .text(sl.b.x);
+      const cx = slotX(sl) + bw / 2, r = sl.b.row;
+      const t = label(chart.append('text').attr('transform', `translate(${cx + 4},${height + 12}) rotate(-38)`).attr('text-anchor', 'end'))
+        .attr('class', 'x-label').style('cursor', drillable ? 'pointer' : null).on('click', () => dtDrill(r));
+      if (!startTime) t.text(sl.b.x);
+      else if (!twoLines) t.text(`${r.time} ${r.reason}`);
+      else {
+        t.append('tspan').attr('x', 0).attr('dy', '-0.3em').text(r.time);
+        t.append('tspan').attr('x', 0).attr('dy', '1.2em').text(r.reason);
+      }
     });
   } else {
     // Split: the split value under each bar, then the X value under its cluster.
@@ -781,10 +798,13 @@ function drawDtChart(rows) {
       const cx = slotX(sl) + bw / 2;
       label(chart.append('text').attr('transform', `translate(${cx - 4},${height + 12}) rotate(45)`)).style('font-size', fs + 'px').text(sl.b.split);
     });
+    // Start time: "HH:MM", then the stop reason unless the split shows it.
     clusters.forEach(c => {
       chart.append('line').attr('x1', c.cx).attr('x2', c.cx).attr('y1', height + 96).attr('y2', height + 102).style('stroke', '#9e9e9e');
       label(chart.append('text').attr('transform', `translate(${c.cx - 4},${height + 112}) rotate(45)`))
-        .style('font-weight', '600').style('fill', '#424242').text(c.x);
+        .attr('class', 'x-label').style('font-weight', '600').style('fill', '#424242')
+        .style('cursor', drillable ? 'pointer' : null).on('click', () => dtDrill(c.row))
+        .text(!startTime ? c.x : split === 'Stop reasons' ? c.row.time : `${c.row.time} ${c.row.reason}`);
     });
   }
 
@@ -834,7 +854,7 @@ function dtTooltip(event, row, bar, seg) {
   let html = '';
   if (seg) html += heading('Stop group', seg.group, STOP_GROUP_COLORS[seg.group] || '#bbb');
   if (bar && bar.split != null) html += heading(axisSingular(dtEffSplit()), bar.split);
-  html += heading(axisSingular(currentXAxis), row.name);
+  html += heading(axisSingular(currentXAxis), row.tipName || row.name);
   const rows = [];
   if (dtColVisible('durSec'))  rows.push(line('Duration', fmtDur(src.durSec, dtTimeFormat)));
   if (dtColVisible('avgSec'))  rows.push(line('Average duration', fmtDur(src.count ? src.durSec / src.count : 0, dtTimeFormat)));
@@ -866,6 +886,125 @@ function redrawChart(xAxis) {
   _dtColLabel = xAxis;
   setChipLabel('xaxis-btn', 'X-axis: ' + xAxis);
   drawDowntime();
+}
+
+// ── Drill-down (spec §8b) ──
+// A bar, its X label or the bold first cell of its row:
+//   entity axis → the item goes into its filter, X-axis Day (Start time on one day);
+//   Day → that day on Start time; Week / Month / Quarter / Year → that period on Day.
+// Day of the week and Start time do not drill. BACK pops one level.
+const _drillStack = [];
+// Entity axis → the filter its item goes into (the rest: dtDrillFilter).
+const DRILL_DIM = {
+  'Stop reasons': 'stops', 'Machine locations': 'locations', 'Stations': 'stations', 'Factories': 'factories',
+  'Operators': 'operators', 'Operator groups': 'operatorGroups', 'Shift leaders': 'leaders',
+  'Products': 'products', 'Orders': 'orders', 'LOT/Batch': 'lots', 'Product groups': 'productGroups', 'Shifts': 'shifts',
+};
+function dtDrillable(row) {
+  if (currentReport !== 'downtime' || currentXAxis === 'Day of the week' || currentXAxis === START_TIME) return false;
+  // "-" (no machine location) has no filter value.
+  return !(row && currentXAxis === 'Machine locations' && row.key === '-');
+}
+function dtSnapshot() {
+  return {
+    filters: Object.fromEntries(Object.entries(filters).map(([k, f]) => [k, { values: new Set(f.values), inverted: f.inverted }])),
+    activeFilters: activeFilters.slice(),
+    tagsFilter: { ...tagsFilter, tagIds: tagsFilter.tagIds.slice() },
+    rangeStart: new Date(rangeStart), rangeEnd: new Date(rangeEnd), preset: currentPreset,
+    xAxis: currentXAxis, split: downtimeSplitBy, sort: dtSort, page: _dtPage,
+  };
+}
+function dtSetRange(start, end, preset) {
+  rangeStart = new Date(start); rangeStart.setHours(0, 0, 0, 0);
+  rangeEnd = new Date(end); rangeEnd.setHours(0, 0, 0, 0);
+  currentPreset = preset; picking = false; _pickerSnapshot = null;
+  selectChipByPreset(preset);
+  setDisplayMonths(rangeStart, rangeEnd);
+  renderCalendars();
+  updateFilterBtn();
+}
+// The members a group drill keeps: those the current selection lets through.
+function dtNarrow(dim, members) {
+  const f = filters[dim];
+  if (!f || !f.values.size) return members;
+  return members.filter(m => (f.inverted ? !f.values.has(m) : f.values.has(m)));
+}
+function dtSetDim(dim, values) {
+  filters[dim] = { values: new Set(values), inverted: false };
+  if (!FIXED_FILTERS.includes(dim) && !activeFilters.includes(dim)) activeFilters.push(dim);
+}
+function dtDrillFilter(axis, value) {
+  if (axis === 'Stop groups') {
+    dtSetDim('stopGroups', [value]);
+    dtSetDim('stops', dtNarrow('stops', DT_REASONS.filter(r => r.group === value).map(r => r.name)));
+  } else if (axis === 'Station groups') {
+    dtSetDim('stations', dtNarrow('stations', Object.keys(STATION_GROUP_OF).filter(st => STATION_GROUP_OF[st] === value)));
+  } else if (axis === 'Product code') {
+    dtSetDim('products', dtNarrow('products', Object.keys(SKU_OF).filter(p => SKU_OF[p] === value)));
+  } else if (axis === 'Tags') {
+    const tag = TagsStore.getTags().find(t => t.name === value);
+    tagsFilter = value === TAG_NONE_LABEL ? { tagIds: [], noTag: true, inverted: false }
+      : { tagIds: tag ? [tag.id] : [], noTag: false, inverted: false };
+    if (!activeFilters.includes('tags')) activeFilters.push('tags');
+  } else if (DRILL_DIM[axis]) {
+    dtSetDim(DRILL_DIM[axis], [value]);
+  }
+}
+// A time slot's dates, within the selected range.
+function dtSlotPeriod(unit, key) {
+  let a, b;
+  if (unit === 'Day') { a = new Date(key); b = new Date(key); }
+  else if (unit === 'Week') { a = new Date(key); b = addDays(a, 6); }
+  else if (unit === 'Month') { const [y, m] = key.split('-').map(Number); a = new Date(y, m, 1); b = new Date(y, m + 1, 0); }
+  else if (unit === 'Quarter') { const [y, q] = key.split('-Q').map(Number); a = new Date(y, (q - 1) * 3, 1); b = new Date(y, q * 3, 0); }
+  else { a = new Date(+key, 0, 1); b = new Date(+key, 11, 31); }
+  return [a < rangeStart ? new Date(rangeStart) : a, b > rangeEnd ? new Date(rangeEnd) : b];
+}
+function dtDrill(row) {
+  if (!row || !dtDrillable(row)) return false;
+  document.getElementById('chart-tooltip').style.display = 'none';
+  _drillStack.push(dtSnapshot());
+  if (TIME_AXES.has(currentXAxis)) {
+    const [a, b] = dtSlotPeriod(currentXAxis, row.key);
+    if (!sameDay(a, rangeStart) || !sameDay(b, rangeEnd)) dtSetRange(a, b, 'custom');
+  } else {
+    dtDrillFilter(currentXAxis, row.key);
+  }
+  closeAllDropdowns(); closeFilterMenus();
+  renderActiveChips();
+  saveTagsFilter();
+  _dtPage = 0;
+  redrawChart(sameDay(rangeStart, rangeEnd) ? START_TIME : 'Day');
+  updateBackBtn();
+  return true;
+}
+function drillBack() {
+  const s = _drillStack.pop();
+  if (!s) return false;
+  document.getElementById('chart-tooltip').style.display = 'none';
+  Object.keys(filters).forEach(k => delete filters[k]);
+  Object.entries(s.filters).forEach(([k, f]) => { filters[k] = { values: new Set(f.values), inverted: f.inverted }; });
+  activeFilters = s.activeFilters.slice();
+  tagsFilter = { ...s.tagsFilter, tagIds: s.tagsFilter.tagIds.slice() };
+  dtSetRange(s.rangeStart, s.rangeEnd, s.preset);
+  downtimeSplitBy = s.split;
+  setChipLabel('splitby-btn', 'Split by: ' + (downtimeSplitBy || '-'));
+  setChipActive('splitby-btn', downtimeSplitBy);
+  currentXAxis = _dtColLabel = s.xAxis;
+  setChipLabel('xaxis-btn', 'X-axis: ' + currentXAxis);
+  dtSort = s.sort;
+  closeAllDropdowns(); closeFilterMenus();
+  renderActiveChips();
+  saveTagsFilter();
+  _dtPage = s.page;
+  drawDowntime();
+  updateBackBtn();
+  return true;
+}
+// BACK shows only after a drill-down.
+function updateBackBtn() {
+  const btn = document.getElementById('dt-back');
+  if (btn) btn.style.visibility = _drillStack.length ? 'visible' : 'hidden';
 }
 
 // ── Chart controls: X-axis, Split by, Y-axis, 2nd Y-axis ──
@@ -1642,6 +1781,16 @@ window.__tagsProto = {
     if (dim === 'columns') return document.getElementById('dt-col-count')?.textContent || '';
     if (dim === 'timeFormat') return document.getElementById('dt-time-label')?.textContent || '';
     return '';
+  },
+  // Drill-down (spec §8b). xValue: the bar's x (chartData) or its row's first cell.
+  drill(xValue) { return dtDrill(_dtData.find(r => r.key === xValue || r.name === xValue)); },
+  back() { return drillBack(); },
+  drillDepth() { return _drillStack.length; },
+  // Extra: the date range, 'YYYY-MM-DD' (to = from when left out).
+  setRange(from, to) {
+    const d = (v) => { const [y, m, dd] = v.split('-').map(Number); return new Date(y, m - 1, dd); };
+    dtSetRange(d(from), d(to || from), 'custom');
+    applyFilters();
   },
   // Earlier calls, kept for older scripts.
   setTags({ tagIds = [], noTag = false, inverted = false } = {}) {

@@ -32,6 +32,8 @@ const XAXIS_OPTIONS = [
   'Day', 'Day of the week', 'Week', 'Month', 'Quarter', 'Year'
 ];
 const TIME_AXES = new Set(['Day','Day of the week','Week','Month','Quarter','Year']);
+// Drill-down only (spec §8b): one bar per stop. Not in the X-axis menu.
+const START_TIME = 'Start time';
 
 // ── Operator directory (role + group lookup by name) ────────────────────────
 // Mock data uses comma-separated operator name strings; this directory lets
@@ -780,6 +782,11 @@ function fmtDMY(d) {
   return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
 }
 
+// HH:MM, local time
+function fmtHM(d) {
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
 // DD.MM.YYYY — used for the filter-bar button label
 function fmtDMslashM(d) {
   return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
@@ -807,15 +814,20 @@ function daysBetween(start, end) {
   return out;
 }
 
-// The range's first day plays week day 1, the next day 2, and so on. Each tiled
-// block keeps its calendar date, so every time axis groups by real dates.
+// The mock week is tiled over the calendar: the first day of the default range
+// (Last 7 days) plays week day 1, the next day 2, and so on. A date plays the
+// same day in every range, so a drill-down to one day shows the same stops.
+// `idx` = the day's position in the range (OEE / Quantities plot by it);
+// `cal` = its calendar offset (the stop seeds use it).
 function blocksForRange(start, end, pattern) {
   const out = [];
   const today = new Date(); today.setHours(0,0,0,0);
+  const anchor = dayNo(today) - 6;
   daysBetween(start, end).forEach((date, idx) => {
     if (date > today) return;              // nothing has run on future days
-    const day = (idx % 7) + 1;
-    pattern.forEach(b => { if (b.day === day) out.push({ ...b, date, idx }); });
+    const cal = dayNo(date) - anchor;
+    const day = (((cal % 7) + 7) % 7) + 1;
+    pattern.forEach(b => { if (b.day === day) out.push({ ...b, date, idx, cal }); });
   });
   return out;
 }
@@ -977,7 +989,7 @@ function blockStops(b) {
   const D = b.plannedMin - b.runMin;
   if (D <= 0) return [];
   // The "main|" prefix is the seed the mock has always used.
-  const seed = `main|${b.station}|${b.idx}`;
+  const seed = `main|${b.station}|${b.cal}`;
   const picks = DT_REASONS.map(r => {
     const h = hash32(seed + '|' + r.slot);
     return { r, on: reasonRunsOn(r, b.station) && (r.slot === 0 || h % 100 < (r.factory ? LOCAL_PICK : 38)),
@@ -1042,7 +1054,7 @@ function blockStops(b) {
 // A segment = one run on one block: the unit planned time is counted in.
 // Like its stops, it belongs to the day its shift started; its planned time
 // is clipped to now (today's later shifts have not run yet).
-function segKey(b, run) { return `${b.station}|${b.idx}|${run.from}`; }
+function segKey(b, run) { return `${b.station}|${b.cal}|${run.from}`; }
 function blockSegments(b, now) {
   const shiftStart = new Date(b.date); shiftStart.setHours(SHIFT_START_H[b.shift] ?? 6, 0, 0, 0);
   return blockRuns(b).map(r => {
@@ -1177,7 +1189,14 @@ function dtSums(stops) {
 // Time axes list every slot of the range, entity axes only values with stops.
 function dtRows(xAxis, base) {
   const rows = new Map();
-  if (TIME_AXES.has(xAxis)) {
+  if (xAxis === START_TIME) {
+    // One row per stop, in time order (spec §8b).
+    base.stops.slice().sort((a, b) => a._t - b._t || (a.id < b.id ? -1 : 1)).forEach((s, i) => {
+      const hm = fmtHM(s._t);
+      rows.set(s.id, { key: s.id, name: `${fmtDMY(s._t)} ${hm}`, time: hm, tipName: `${hm} ${fmtDMY(s._t)}`,
+                       reason: s.reason, order: i, stops: [s] });
+    });
+  } else if (TIME_AXES.has(xAxis)) {
     const my = base.range[0].getFullYear() !== base.range[1].getFullYear();
     // Stops count on the day their shift started. Only slots with stops make rows.
     timeSlots(xAxis, base.range).forEach((sl, i) => rows.set(sl.key, { key: sl.key, name: sl.label, order: i, stops: [] }));
@@ -1205,6 +1224,7 @@ function dtTotalPlanned(base) { return base.segs.reduce((t, g) => t + g.plannedS
 // Planned time per row (spec §7): the period's on Stop reasons, Stop groups and
 // Machine locations; elsewhere the planned time of the row's own segments
 // (its station, product, shift, day…). Tags: the segments its stops are on.
+// Start time (one row per stop): the period's, as on Stop reasons.
 function dtPlannedFn(xAxis, base) {
   const total = dtTotalPlanned(base);
   if (TIME_AXES.has(xAxis)) {
