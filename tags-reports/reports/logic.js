@@ -388,8 +388,8 @@ function axisSingular(label) {
 }
 
 // ── Table columns (spec §7) ──
-// A row whose stops carry no tag reads "Unknown", as the Tags bar does.
-const TAG_NONE_LABEL_COL = 'Unknown';
+// A row whose stops carry no tag reads "Untagged", as the Tags bar does.
+const TAG_NONE_LABEL_COL = 'Untagged';
 const DT_TAGS_COL = { key: 'tags', label: 'Tags', width: 220, empty: TAG_NONE_LABEL_COL,
   vals: s => stopTagIds(s).map(id => TagsStore.tagById(id)?.name).filter(Boolean) };
 function showTagsInRows() { return tagsFeatureOn() && currentXAxis !== 'Tags'; }
@@ -1554,7 +1554,7 @@ const applyOperatorFilters = applyFilters;
 // (stopTagIds); the filter, the X-axis, the split and the column all read it.
 //
 // Filter: "+ FILTER → Tags", the selection list over every tag of the four
-// types, names only, "Unknown" (no tag) pinned on top. Inversion as the product
+// types, names only, "Untagged" pinned on top. Inversion as the product
 // (more than half ticked → stored as the unticked ones, inverted).
 // Meaning, as one rule for TagsStore.evaluate over the four FILTER_FIELDS:
 //   S = OR of { is S };  Unknown = AND of { hasNone };  plain = S OR Unknown;
@@ -1598,10 +1598,10 @@ function tagsFilterPredicate() {
   return s => TagsStore.evaluate(rule, stopSubject(s));
 }
 
-// X-axis / Split by "Tags": one bar per tag plus "Unknown" (no tag); a stop counts in
+// X-axis / Split by "Tags": one bar per tag plus "Untagged"; a stop counts in
 // every tag it carries. A Tags filter limits the bars to its selection.
-// Evocon's word for a missing value, as with operators.
-const TAG_NONE_LABEL = 'Unknown';
+// Stops with no tag.
+const TAG_NONE_LABEL = 'Untagged';
 function tagBarAllowed(id) {
   if (!tagsFilterActive()) return true;
   const inS = tagsFilter.tagIds.includes(id);
@@ -1653,7 +1653,7 @@ FILTER_DIMS.tags = {
     tagsFilter = { tagIds: held.filter(v => v !== TAG_NONE).map(Number), noTag: held.includes(TAG_NONE), inverted };
   },
   // Chip value, per the Figma filter bar (a deliberate new pattern):
-  // All · Cleaning · Cleaning + 2 · ≠ Cleaning + 1. "Unknown" first when selected.
+  // All · Cleaning · Cleaning + 2 · ≠ Cleaning + 1. "Untagged" first when selected.
   chipText: () => {
     const { tagIds, noTag, inverted } = tagsFilter;
     const names = TagsStore.tagNames(tagIds, { withDeleted: true }).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));

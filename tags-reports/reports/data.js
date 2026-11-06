@@ -1115,7 +1115,7 @@ const DT_AXES = {
   'Shifts':            { singular: 'Shift',            keys: s => [s.shift],        seg: g => [g.b.shift] },
 };
 // Values pinned before the A–Z rest, in bars, splits and lists.
-const PINNED_VALUES = [OP_UNKNOWN, '-'];
+const PINNED_VALUES = [OP_UNKNOWN, 'Untagged', '-'];
 function sortValues(vals) {
   const pin = vals.filter(v => PINNED_VALUES.includes(v)).sort((a, b) => PINNED_VALUES.indexOf(a) - PINNED_VALUES.indexOf(b));
   const rest = vals.filter(v => !PINNED_VALUES.includes(v))
